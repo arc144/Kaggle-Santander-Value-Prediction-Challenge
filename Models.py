@@ -8,7 +8,8 @@ class LightGBM():
     '''Microsoft LightGBM class wrapper'''
 
     def __init__(self, num_leaves=40, lr=0.005, bagging_fraction=0.7,
-                 feature_fraction=0.6, bagging_frequency=6, device='gpu'):
+                 feature_fraction=0.6, bagging_frequency=6, device='gpu',
+                 **kwargs):
         self.params = {
             "objective": "regression",
             "metric": "rmse",
@@ -24,6 +25,8 @@ class LightGBM():
             "gpu_platform_id":  0,
             "gpu_device_id":  0,
         }
+        for key, value in kwargs.items():
+            self.params[key] = value
 
     def fit(self, train_X, train_y, val_X, val_y, ES_rounds=100, steps=5000):
         # Train LGB model
