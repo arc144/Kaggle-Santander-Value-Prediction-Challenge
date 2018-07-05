@@ -53,6 +53,11 @@ class KaggleDataset():
         if join_dfs:
             self.joint_df = pd.concat([self.train_df, self.test_df], axis=0)
 
+        # Pre-compute aggregates
+        self.train_agg = compute_row_aggregates(
+            self.train_df.drop(["target"], axis=1))
+        self.test_agg = compute_row_aggregates(self.test_df)
+
     def get_train_data(self, logloss=True, normalize=False, n_components=None,
                        reduce_dim_nb=0, use_aggregates=True, reduce_dim_method='svd'):
         '''Convert train_df to train array'''
@@ -80,9 +85,7 @@ class KaggleDataset():
 
         # Compute aggregates if required
         if use_aggregates:
-            agg = compute_row_aggregates(
-                self.train_df.drop(["target"], axis=1)).values
-            x = np.concatenate([x, agg], axis=-1)
+            x = np.concatenate([x, self.train_agg.values], axis=-1)
         return x, y
 
     def get_test_data(self):
@@ -100,8 +103,7 @@ class KaggleDataset():
 
         # Compute aggregates if required
         if self.use_aggregates:
-            agg = compute_row_aggregates(self.test_df).values
-            x = np.concatenate([x, agg], axis=-1)
+            x = np.concatenate([x, self.test_agg.values], axis=-1)
 
         return x
 

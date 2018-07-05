@@ -16,23 +16,22 @@ dataset.remove_constant_features()
 NORMALIZE = False
 AGGREGATES = True
 # DIM_TO_REDUCE = 50
-DIM_TO_KEEP = 100
+DIM_TO_KEEP = 50
 X, Y = dataset.get_train_data(normalize=NORMALIZE, logloss=True,
                               use_aggregates=AGGREGATES,
-                              # n_components=DIM_TO_KEEP,
-                              reduce_dim_nb=0,
-                              reduce_dim_method='srp')
-
+#                              n_components=DIM_TO_KEEP,
+#                              reduce_dim_nb=0,
+                              reduce_dim_method='fa')
 low_rep_X = dataset.reduce_dimensionality(X,
                                           n_components=DIM_TO_KEEP,
-                                          method='srp',
+                                          method='fa',
                                           fit=True)
 
 X = np.concatenate([X, low_rep_X], axis=-1)
 
 #%% Split to train and val data
 RANDOM_SEED = 143
-K = 20
+K = 3
 kf = KFold(n_splits=K, shuffle=True, random_state=RANDOM_SEED)
 
 # Train model on KFold
@@ -100,5 +99,12 @@ evals_result = model.fit(train_X=x_train, train_y=y_train,
 
 # %%Create submission file
 X_test = dataset.get_test_data()
+low_rep_X_test = dataset.reduce_dimensionality(X_test,
+                                               n_components=DIM_TO_KEEP,
+                                               method='fa',
+                                               fit=False)
+
+X_test = np.concatenate([X_test, low_rep_X_test], axis=-1)
+
 pred = model.predict(X_test, logloss=True)
 create_submission_file(dataset.test_df.index, pred)
