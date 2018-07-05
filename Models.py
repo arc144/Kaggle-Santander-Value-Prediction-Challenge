@@ -43,7 +43,7 @@ class LightGBM():
 
     def predict(self, test_X, logloss=True):
         '''Predict using a fitted model'''
-        pred_y = self.model.predict(test_X, num_iteration=model.best_iteration)
+        pred_y = self.model.predict(test_X, num_iteration=self.model.best_iteration)
         if logloss:
             pred_y = np.expm1(pred_y)
         return pred_y

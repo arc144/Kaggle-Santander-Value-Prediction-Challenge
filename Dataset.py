@@ -1,12 +1,30 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MaxAbsScaler
-from sklearn.decomposition import TruncatedSVD, SparsePCA
+from sklearn.decomposition import TruncatedSVD, SparsePCA, FactorAnalysis
+from sklearn.random_projection import SparseRandomProjection
 
 
 def load_df_from_path(path):
     df = pd.read_csv(path, index_col=0)
     return df
+
+
+def compute_row_aggregates(df):
+    '''Add series of aggreagates to dataset rowise'''
+    agg_df = pd.DataFrame(index=df.index)
+    for index, row in df.iterrows():
+        non_zero_values = row.iloc[row.nonzero()]
+
+        agg_df.at[index, 'non_zero_mean'] = non_zero_values.mean()
+        agg_df.at[index, 'non_zero_max'] = non_zero_values.max()
+        agg_df.at[index, 'non_zero_min'] = non_zero_values.min()
+        agg_df.at[index, 'non_zero_std'] = np.std(non_zero_values.values)
+        agg_df.at[index, 'non_zero_sum'] = non_zero_values.sum()
+        agg_df.at[index, 'non_zero_count'] = non_zero_values.count()
+        agg_df.at[index, 'non_zero_fraction'] = \
+            non_zero_values.count() / row.count()
+    return agg_df
 
 
 class KaggleDataset():
@@ -35,39 +53,56 @@ class KaggleDataset():
         if join_dfs:
             self.joint_df = pd.concat([self.train_df, self.test_df], axis=0)
 
-    def get_train_data(self, logloss=True, normalize=False,
-                       reduce_dim_nb=0, reduce_dim_method='svd'):
+    def get_train_data(self, logloss=True, normalize=False, n_components=None,
+                       reduce_dim_nb=0, use_aggregates=True, reduce_dim_method='svd'):
         '''Convert train_df to train array'''
         # Save settings to proccess test data later on
         self.normalize = normalize
         self.reduce_dim_nb = reduce_dim_nb
         self.reduce_dim_method = reduce_dim_method
+        self.use_aggregates = use_aggregates
         # Get trainning data and labels from dataframe
         x = self.train_df.drop(["target"], axis=1).values
         if logloss:
             y = np.log1p(self.train_df["target"].values)
         else:
             y = self.train_df["target"].values
+
         # Preprocess if required
-        if reduce_dim_nb:
-            x = self.reduce_dimensionality(x, reduce_dim_nb,
+        if reduce_dim_nb or n_components is not None:
+            x = self.reduce_dimensionality(x,
+                                           n_components=n_components,
+                                           red_num=reduce_dim_nb,
                                            method=reduce_dim_method,
                                            verbose=self.verbose)
         if normalize:
             x = self.normalize_data(x, fit=True, verbose=self.verbose)
+
+        # Compute aggregates if required
+        if use_aggregates:
+            agg = compute_row_aggregates(
+                self.train_df.drop(["target"], axis=1)).values
+            x = np.concatenate([x, agg], axis=-1)
         return x, y
 
     def get_test_data(self):
         '''Convert test_df to array using the same preprocess
          as trainning data'''
-        x = self.test_df.drop(["target"], axis=1).values
+        x = self.test_df.values
         # Preprocess if required
         if self.reduce_dim_nb:
             x = self.reduce_dimensionality(x, self.reduce_dim_nb,
                                            method=self.reduce_dim_method,
+                                           fit=False,
                                            verbose=self.verbose)
         if self.normalize:
             x = self.normalize_data(x, fit=False, verbose=self.verbose)
+
+        # Compute aggregates if required
+        if self.use_aggregates:
+            agg = compute_row_aggregates(self.test_df).values
+            x = np.concatenate([x, agg], axis=-1)
+
         return x
 
     def remove_constant_features(self, verbose=True):
@@ -96,26 +131,38 @@ class KaggleDataset():
             print('Data normalized.')
         return x
 
-    def reduce_dimensionality(self, x, red_num, method='svd',
-                              fit=True, verbose=True):
+    def reduce_dimensionality(self, x, n_components=None, red_num=None,
+                              method='svd', fit=True, verbose=True):
         '''Reduce #red_num of features from the dataset'''
-        n_components = x.shape[0] - red_num
-        if method == 'svd':
-            self.reductor = TruncatedSVD(n_components=n_components)
+        assert method in ['svd', 'srp', 'fa']
+        if n_components is None:
+            n_components = x.shape[0] - red_num
+        elif n_components == -1:
+            n_components = 'auto'
+            red_num = 'Unkown'
+        else:
+            red_num = x.shape[0] - n_components
 
-        # When reducing test data fit must be False
+            # When reducing test data fit must be False
         if fit:
+            if method == 'svd':
+                self.reductor = TruncatedSVD(n_components=n_components)
+            elif method == 'srp':
+                self.reductor = SparseRandomProjection(
+                    n_components=n_components)
+            elif method == 'fa':
+                self.reductor = FactorAnalysis(n_components=n_components)
+
             self.reductor.fit(x)
 
-        x = self.reductor.fit_transform(x)
+        x = self.reductor.transform(x)
 
         if verbose:
             print(red_num, ' less important features removed.')
-            print('Importance ratios are: ',
-                  self.reductor.explained_variance_ratio_)
+            # print('Importance ratios are: ',
+            #       self.reductor.explained_variance_ratio_)
             print('Data new shape: ', x.shape)
         return x
-
 
 if __name__ == '__main__':
     train_path = './train.csv'
