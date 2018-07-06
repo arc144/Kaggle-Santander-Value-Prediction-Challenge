@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.preprocessing import MaxAbsScaler
 from sklearn.decomposition import TruncatedSVD, SparsePCA, FactorAnalysis
 from sklearn.random_projection import SparseRandomProjection
+from scipy.stats import ks_2samp
 
 
 def load_df_from_path(path):
@@ -123,6 +124,27 @@ class KaggleDataset():
             self.test_df.drop(col_list, axis=1, inplace=True)
         if verbose:
             print('{} constant features removed from datasets'.format(count))
+
+    def remove_different_distribution_features(self,
+                                               pvalue_threshold=0.01,
+                                               stat_threshold=0.2,
+                                               verbose=True):
+        '''Remove features that have different distribuition in
+         train and test sets'''
+        diff_cols = []
+        for col in self.train_df.drop(["target"], axis=1).columns:
+            statistic, pvalue = ks_2samp(
+                self.train_df[col].values, self.test_df[col].values)
+            if pvalue <= pvalue_threshold and \
+                    np.abs(statistic) > stat_threshold:
+                diff_cols.append(col)
+
+        for col in diff_cols:
+            if col in self.train_df.columns:
+                self.train_df.drop(col, axis=1, inplace=True)
+                self.test_df.drop(col, axis=1, inplace=True)
+        if verbose:
+            print('{} features removed.'.format(len(diff_cols)))
 
     def normalize_data(self, x, fit=True, verbose=True):
         '''Normalize data taking sparsity into account'''

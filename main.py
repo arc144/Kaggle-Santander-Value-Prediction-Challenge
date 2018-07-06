@@ -9,36 +9,36 @@ from Submission import create_submission_file
 train_path = './train.csv'
 test_path = './test.csv'
 # Load and preprocess Dataset
-# MUST BE CHANGED FOR SUBMISSION
 dataset = KaggleDataset(train_path, test_path=test_path)
 dataset.remove_constant_features()
+#dataset.remove_different_distribution_features()
 #%% Get data for trainning
 NORMALIZE = False
 AGGREGATES = True
 # DIM_TO_REDUCE = 50
-DIM_TO_KEEP = 50
+#DIM_TO_KEEP = 50
 X, Y = dataset.get_train_data(normalize=NORMALIZE, logloss=True,
                               use_aggregates=AGGREGATES,
 #                              n_components=DIM_TO_KEEP,
 #                              reduce_dim_nb=0,
                               reduce_dim_method='fa')
-low_rep_X = dataset.reduce_dimensionality(X,
-                                          n_components=DIM_TO_KEEP,
-                                          method='fa',
-                                          fit=True)
-
-X = np.concatenate([X, low_rep_X], axis=-1)
+#low_rep_X = dataset.reduce_dimensionality(X,
+#                                          n_components=DIM_TO_KEEP,
+#                                          method='fa',
+#                                          fit=True)
+#
+#X = np.concatenate([X, low_rep_X], axis=-1)
 
 #%% Split to train and val data
 RANDOM_SEED = 143
-K = 3
+K = 20
 kf = KFold(n_splits=K, shuffle=True, random_state=RANDOM_SEED)
 
 # Train model on KFold
 MODEL_TYPE = 'LightGBM'     # Either LightGBM, XGBoost or CatBoost
 
 LightGBM_params = dict(num_leaves=53, lr=0.005, bagging_fraction=0.67,
-                       feature_fraction=0.12, bagging_frequency=6,
+                       feature_fraction=0.35, bagging_frequency=6,
                        min_data_in_leaf=21, device='cpu',
                        lambda_l1=0.1, lambda_l2=10, num_threads=8)
 
@@ -99,12 +99,12 @@ evals_result = model.fit(train_X=x_train, train_y=y_train,
 
 # %%Create submission file
 X_test = dataset.get_test_data()
-low_rep_X_test = dataset.reduce_dimensionality(X_test,
-                                               n_components=DIM_TO_KEEP,
-                                               method='fa',
-                                               fit=False)
-
-X_test = np.concatenate([X_test, low_rep_X_test], axis=-1)
+#low_rep_X_test = dataset.reduce_dimensionality(X_test,
+#                                               n_components=DIM_TO_KEEP,
+#                                               method='fa',
+#                                               fit=False)
+#
+#X_test = np.concatenate([X_test, low_rep_X_test], axis=-1)
 
 pred = model.predict(X_test, logloss=True)
 create_submission_file(dataset.test_df.index, pred)
