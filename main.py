@@ -9,9 +9,11 @@ from Submission import create_submission_file
 train_path = './train.csv'
 test_path = './test.csv'
 # Load and preprocess Dataset
-dataset = KaggleDataset(train_path, test_path=test_path)
-dataset.remove_constant_features()
-#dataset.remove_different_distribution_features()
+dataset = KaggleDataset(train_path, test_path=None)
+# dataset.to_sparse(dataset='train')
+# dataset.remove_constant_features()
+dataset.remove_duplicated_features()
+# dataset.remove_different_distribution_features()
 #%% Get data for trainning
 NORMALIZE = False
 AGGREGATES = True
@@ -19,10 +21,10 @@ AGGREGATES = True
 #DIM_TO_KEEP = 50
 X, Y = dataset.get_train_data(normalize=NORMALIZE, logloss=True,
                               use_aggregates=AGGREGATES,
-#                              n_components=DIM_TO_KEEP,
-#                              reduce_dim_nb=0,
+                              #                              n_components=DIM_TO_KEEP,
+                              #                              reduce_dim_nb=0,
                               reduce_dim_method='fa')
-#low_rep_X = dataset.reduce_dimensionality(X,
+# low_rep_X = dataset.reduce_dimensionality(X,
 #                                          n_components=DIM_TO_KEEP,
 #                                          method='fa',
 #                                          fit=True)
@@ -31,37 +33,23 @@ X, Y = dataset.get_train_data(normalize=NORMALIZE, logloss=True,
 
 #%% Split to train and val data
 RANDOM_SEED = 143
-K = 20
-kf = KFold(n_splits=K, shuffle=True, random_state=RANDOM_SEED)
+NFOLD = 5
 
 # Train model on KFold
 MODEL_TYPE = 'LightGBM'     # Either LightGBM, XGBoost or CatBoost
 
 LightGBM_params = dict(num_leaves=53, lr=0.005, bagging_fraction=0.67,
                        feature_fraction=0.35, bagging_frequency=6,
-                       min_data_in_leaf=21, device='cpu',
-                       lambda_l1=0.1, lambda_l2=10, num_threads=8)
+                       min_data_in_leaf=21,
+                       use_missing=True, zero_as_missing=True,
+                       lambda_l1=0.1, lambda_l2=10,
+                       device='cpu', num_threads=8)
 
-kFold_results = []
-for train_index, val_index in kf.split(X, y=Y):
-    x_train = X[train_index]
-    y_train = Y[train_index]
-    x_val = X[val_index]
-    y_val = Y[val_index]
+if MODEL_TYPE == 'LightGBM':
+    model = LightGBM(**LightGBM_params)
 
-    if MODEL_TYPE == 'LightGBM':
-        model = LightGBM(**LightGBM_params)
-
-    evals_result = model.fit(train_X=x_train, train_y=y_train,
-                             val_X=x_val, val_y=y_val,
-                             ES_rounds=100,
-                             steps=10000)
-    kFold_results.append(np.array(evals_result['valid_1']['rmse']).min())
-
-kFold_results = np.array(kFold_results)
-#print('K-Fold val error: ', kFold_results)
-print('Mean val error: {}, std {} '.format(
-    kFold_results.mean(), kFold_results.std()))
+model.cv(X, Y, nfold=NFOLD,  ES_rounds=100,
+         steps=5000, RANDOM_SEED=RANDOM_SEED)
 
 # %% GRIDSEARCHCV
 param_test1 = {
@@ -99,7 +87,7 @@ evals_result = model.fit(train_X=x_train, train_y=y_train,
 
 # %%Create submission file
 X_test = dataset.get_test_data()
-#low_rep_X_test = dataset.reduce_dimensionality(X_test,
+# low_rep_X_test = dataset.reduce_dimensionality(X_test,
 #                                               n_components=DIM_TO_KEEP,
 #                                               method='fa',
 #                                               fit=False)

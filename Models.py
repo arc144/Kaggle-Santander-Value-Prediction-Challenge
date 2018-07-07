@@ -2,6 +2,7 @@ import numpy as np
 import lightgbm as lgb
 # import xgboost as xgb
 from catboost import CatBoostRegressor
+from sklearn.model_selection import KFold, train_test_split, GridSearchCV
 
 
 class LightGBM():
@@ -41,9 +42,63 @@ class LightGBM():
                                evals_result=evals_result)
         return evals_result
 
+    def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, RANDOM_SEED=143):
+        # Train LGB model using CV
+        kf = KFold(n_splits=nfold, shuffle=True, random_state=RANDOM_SEED)
+
+        kFold_results = []
+        for train_index, val_index in kf.split(X, y=Y):
+            x_train = X[train_index]
+            y_train = Y[train_index]
+            x_val = X[val_index]
+            y_val = Y[val_index]
+
+            evals_result = self.fit(train_X=x_train, train_y=y_train,
+                                    val_X=x_val, val_y=y_val,
+                                    ES_rounds=100,
+                                    steps=10000)
+            kFold_results.append(
+                np.array(evals_result['valid_1']['rmse']).min())
+
+        kFold_results = np.array(kFold_results)
+        print('Mean val error: {}, std {} '.format(
+            kFold_results.mean(), kFold_results.std()))
+
+    def cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000, RANDOM_SEED=143, logloss=True):
+        '''Fit model using CV and predict test using the average of all folds'''
+        kf = KFold(n_splits=nfold, shuffle=True, random_state=RANDOM_SEED)
+
+        kFold_results = []
+        for i, (train_index, val_index) in enumerate(kf.split(X, y=Y)):
+            x_train = X[train_index]
+            y_train = Y[train_index]
+            x_val = X[val_index]
+            y_val = Y[val_index]
+
+            evals_result = self.fit(train_X=x_train, train_y=y_train,
+                                    val_X=x_val, val_y=y_val,
+                                    ES_rounds=100,
+                                    steps=10000)
+            kFold_results.append(
+                np.array(evals_result['valid_1']['rmse']).min())
+
+            # Get predictions
+            if not i:
+                pred_y = self.predict(test_X, logloss=logloss)
+            else:
+                pred_y += self.predict(test_X, logloss=logloss)
+
+        kFold_results = np.array(kFold_results)
+        print('Mean val error: {}, std {} '.format(
+            kFold_results.mean(), kFold_results.std()))
+
+        # Divide pred by the number of folds and return
+        return pred_y / nfold
+
     def predict(self, test_X, logloss=True):
         '''Predict using a fitted model'''
-        pred_y = self.model.predict(test_X, num_iteration=self.model.best_iteration)
+        pred_y = self.model.predict(
+            test_X, num_iteration=self.model.best_iteration)
         if logloss:
             pred_y = np.expm1(pred_y)
         return pred_y

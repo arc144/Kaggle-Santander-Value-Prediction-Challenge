@@ -57,7 +57,8 @@ class KaggleDataset():
         # Pre-compute aggregates
         self.train_agg = compute_row_aggregates(
             self.train_df.drop(["target"], axis=1))
-        self.test_agg = compute_row_aggregates(self.test_df)
+        if test_path is not None:
+            self.test_agg = compute_row_aggregates(self.test_df)
 
     def get_train_data(self, logloss=True, normalize=False, n_components=None,
                        reduce_dim_nb=0, use_aggregates=True, reduce_dim_method='svd'):
@@ -125,6 +126,23 @@ class KaggleDataset():
         if verbose:
             print('{} constant features removed from datasets'.format(count))
 
+    def remove_duplicated_features(self, verbose=True):
+        '''Remove features that have duplicated values'''
+        colsToRemove = []
+        columns = self.train_df.columns
+        for i in range(len(columns) - 1):
+            v = self.train_df[columns[i]].values
+            for j in range(i + 1, len(columns)):
+                if np.array_equal(v, self.train_df[columns[j]].values):
+                    colsToRemove.append(columns[j])
+        # Remove feature in both train and test sets
+        self.train_df.drop(colsToRemove, axis=1, inplace=True)
+        if self.test_df is not None:
+            self.test_df.drop(colsToRemove, axis=1, inplace=True)
+        if verbose:
+            print('{} duplicated features removed from datasets'.format(
+                len(colsToRemove)))
+
     def remove_different_distribution_features(self,
                                                pvalue_threshold=0.01,
                                                stat_threshold=0.2,
@@ -145,6 +163,30 @@ class KaggleDataset():
                 self.test_df.drop(col, axis=1, inplace=True)
         if verbose:
             print('{} features removed.'.format(len(diff_cols)))
+
+    def to_sparse(self, dataset='both', verbose=True):
+        '''Transform datasets to sparse by removing zeros'''
+        if dataset == 'train' or dataset == 'both':
+            if verbose:
+                print('Dense memory usage: train = {}mb'.format(
+                    self.train_df.memory_usage().sum() / 1024 / 1024))
+
+            self.train_df = self.train_df.replace(0, np.nan).to_sparse()
+
+            if verbose:
+                print('Sparse memory usage: train = {}mb'.format(
+                    self.train_df.memory_usage().sum() / 1024 / 1024))
+
+        if dataset == 'test' or dataset == 'both':
+            if verbose:
+                print('Dense memory usage: test = {}mb'.format(
+                    self.test_df.memory_usage().sum() / 1024 / 1024))
+
+            self.test_df = self.test_df.replace(0, np.nan).to_sparse()
+
+            if verbose:
+                print('Sparse memory usage: test = {}mb'.format(
+                    self.test_df.memory_usage().sum() / 1024 / 1024))
 
     def normalize_data(self, x, fit=True, verbose=True):
         '''Normalize data taking sparsity into account'''
