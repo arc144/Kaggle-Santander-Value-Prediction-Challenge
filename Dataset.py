@@ -248,14 +248,11 @@ class KaggleDataset():
         x, y = self.get_train_data(use_aggregates=False)
         x_train, x_val, y_train, y_val = train_test_split(
             x, y, test_size=0.2, random_state=random_seed)
-
         model.fit(x_train, y_train, x_val, y_val, verbose=150)
-        most_important = model.feature_importance(
+        most_important = model.model.feature_importance(
             importance_type=importance_type)
-        print(most_important)
         index = np.argsort(most_important)[:-num]
-        features = self.train_df.drop(["target"], axis=1).values[index]
-        return features
+        return index
 
     # def get_aggregates_for_most_important(self, num=50,
     #                                       importance_type='split',

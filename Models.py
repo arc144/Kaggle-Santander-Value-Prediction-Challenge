@@ -5,6 +5,22 @@ from catboost import CatBoostRegressor
 from sklearn.model_selection import KFold, train_test_split, GridSearchCV
 
 
+def generate_bagging_splits(n_size, nfold, out_size=None, random_seed=143):
+    '''Generate random bagging splits'''
+    np.random.seed(random_seed)
+    ref = range(n_size)
+    if out_size is None:
+        out_size = n_size
+
+    splits = []
+    for _ in range(nfold):
+        t_index = np.random.randint(0, n_size, size=out_size)
+        v_index = [j for j in ref if j not in t_index]
+        splits.append((t_index, v_index))
+
+    return splits
+
+
 class LightGBM():
     '''Microsoft LightGBM class wrapper'''
 
@@ -43,22 +59,15 @@ class LightGBM():
                                evals_result=evals_result)
         return evals_result
 
-    def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, RANDOM_SEED=143,
+    def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, random_seed=143,
            bootstrap=False, split_rate=0.8):
         # Train LGB model using CV
-        np.random.seed(RANDOM_SEED)
         if bootstrap:
-            l = X.shape[0]
-            t_size = int(split_rate * l)
-            splits = []
-            for _ in range(nfold):
-                rand = np.arange(0, l)
-                np.random.shuffle(rand)
-
-                splits.append((rand[:t_size], rand[t_size:]))
+            splits = generate_bagging_splits(
+                X.shape[0], nfold, random_seed=random_seed)
 
         else:
-            kf = KFold(n_splits=nfold, shuffle=True, random_state=RANDOM_SEED)
+            kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
             splits = kf.split(X, y=Y)
 
         kFold_results = []
@@ -80,23 +89,16 @@ class LightGBM():
             kFold_results.mean(), kFold_results.std()))
 
     def cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
-                   RANDOM_SEED=143, logloss=True,
+                   random_seed=143, logloss=True,
                    bootstrap=False, split_rate=0.8):
         '''Fit model using CV and predict test using the average
          of all folds'''
-        np.random.seed(RANDOM_SEED)
         if bootstrap:
-            l = X.shape[0]
-            t_size = int(split_rate * l)
-            splits = []
-            for _ in range(nfold):
-                rand = np.arange(0, l)
-                np.random.shuffle(rand)
-
-                splits.append((rand[:t_size], rand[t_size:]))
+            splits = generate_bagging_splits(
+                X.shape[0], nfold, random_seed=random_seed)
 
         else:
-            kf = KFold(n_splits=nfold, shuffle=True, random_state=RANDOM_SEED)
+            kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
             splits = kf.split(X, y=Y)
 
         kFold_results = []
