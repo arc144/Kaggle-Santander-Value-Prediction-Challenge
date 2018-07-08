@@ -10,9 +10,9 @@ train_path = './train.csv'
 test_path = './test.csv'
 # Load and preprocess Dataset
 dataset = KaggleDataset(train_path, test_path=None)
-# dataset.to_sparse(dataset='train')
-# dataset.remove_constant_features()
-dataset.remove_duplicated_features()
+dataset.to_sparse(dataset='train')
+#dataset.remove_constant_features()
+#dataset.remove_duplicated_features()
 # dataset.remove_different_distribution_features()
 #%% Get data for trainning
 NORMALIZE = False
@@ -41,7 +41,7 @@ MODEL_TYPE = 'LightGBM'     # Either LightGBM, XGBoost or CatBoost
 LightGBM_params = dict(num_leaves=53, lr=0.005, bagging_fraction=0.67,
                        feature_fraction=0.35, bagging_frequency=6,
                        min_data_in_leaf=21,
-                       use_missing=True, zero_as_missing=True,
+                       use_missing=True, zero_as_missing=False,
                        lambda_l1=0.1, lambda_l2=10,
                        device='cpu', num_threads=8)
 
@@ -49,7 +49,8 @@ if MODEL_TYPE == 'LightGBM':
     model = LightGBM(**LightGBM_params)
 
 model.cv(X, Y, nfold=NFOLD,  ES_rounds=100,
-         steps=5000, RANDOM_SEED=RANDOM_SEED)
+         steps=5000, RANDOM_SEED=RANDOM_SEED,
+         bootstrap=True, split_rate=0.8)
 
 # %% GRIDSEARCHCV
 param_test1 = {

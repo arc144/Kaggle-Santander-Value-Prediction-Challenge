@@ -4,6 +4,8 @@ from sklearn.preprocessing import MaxAbsScaler
 from sklearn.decomposition import TruncatedSVD, SparsePCA, FactorAnalysis
 from sklearn.random_projection import SparseRandomProjection
 from scipy.stats import ks_2samp
+from Models import LightGBM
+from sklearn.model_selection import train_test_split
 
 
 def load_df_from_path(path):
@@ -61,7 +63,8 @@ class KaggleDataset():
             self.test_agg = compute_row_aggregates(self.test_df)
 
     def get_train_data(self, logloss=True, normalize=False, n_components=None,
-                       reduce_dim_nb=0, use_aggregates=True, reduce_dim_method='svd'):
+                       reduce_dim_nb=0, use_aggregates=True,
+                       reduce_dim_method='svd'):
         '''Convert train_df to train array'''
         # Save settings to proccess test data later on
         self.normalize = normalize
@@ -171,7 +174,7 @@ class KaggleDataset():
                 print('Dense memory usage: train = {}mb'.format(
                     self.train_df.memory_usage().sum() / 1024 / 1024))
 
-            self.train_df = self.train_df.replace(0, np.nan).to_sparse()
+            self.train_df = self.train_df.replace(0, np.nan)
 
             if verbose:
                 print('Sparse memory usage: train = {}mb'.format(
@@ -182,7 +185,7 @@ class KaggleDataset():
                 print('Dense memory usage: test = {}mb'.format(
                     self.test_df.memory_usage().sum() / 1024 / 1024))
 
-            self.test_df = self.test_df.replace(0, np.nan).to_sparse()
+            self.test_df = self.test_df.replace(0, np.nan)
 
             if verbose:
                 print('Sparse memory usage: test = {}mb'.format(
@@ -229,6 +232,40 @@ class KaggleDataset():
             #       self.reductor.explained_variance_ratio_)
             print('Data new shape: ', x.shape)
         return x
+
+    def get_most_important_features(self, num=50, importance_type='split',
+                                    random_seed=43):
+        '''Get the column names for the most important features'''
+        LightGBM_params = dict(num_leaves=53, lr=0.005, bagging_fraction=0.67,
+                               feature_fraction=0.35, bagging_frequency=6,
+                               min_data_in_leaf=21,
+                               use_missing=True, zero_as_missing=True,
+                               lambda_l1=0.1, lambda_l2=10,
+                               device='cpu', num_threads=8)
+
+        model = LightGBM(**LightGBM_params)
+
+        x, y = self.get_train_data(use_aggregates=False)
+        x_train, x_val, y_train, y_val = train_test_split(
+            x, y, test_size=0.2, random_state=random_seed)
+
+        model.fit(x_train, y_train, x_val, y_val, verbose=150)
+        most_important = model.feature_importance(
+            importance_type=importance_type)
+        print(most_important)
+        index = np.argsort(most_important)[:-num]
+        features = self.train_df.drop(["target"], axis=1).values[index]
+        return features
+
+    # def get_aggregates_for_most_important(self, num=50,
+    #                                       importance_type='split',
+    #                                       random_seed=43):
+    #     '''Compute aggregate features for the most important features'''
+    #     features = self.get_most_important_features(num,
+    #                                                 importance_type,
+    #                                                 random_seed)
+    #     df =
+    #     agg = compute_row_aggregates()
 
 if __name__ == '__main__':
     train_path = './train.csv'

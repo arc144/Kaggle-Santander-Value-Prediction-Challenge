@@ -29,7 +29,8 @@ class LightGBM():
         for key, value in kwargs.items():
             self.params[key] = value
 
-    def fit(self, train_X, train_y, val_X, val_y, ES_rounds=100, steps=5000):
+    def fit(self, train_X, train_y, val_X, val_y, ES_rounds=100, steps=5000,
+            verbose=150):
         # Train LGB model
         lgtrain = lgb.Dataset(train_X, label=train_y)
         lgval = lgb.Dataset(val_X, label=val_y)
@@ -38,16 +39,30 @@ class LightGBM():
                                num_boost_round=steps,
                                valid_sets=[lgtrain, lgval],
                                early_stopping_rounds=ES_rounds,
-                               verbose_eval=150,
+                               verbose_eval=verbose,
                                evals_result=evals_result)
         return evals_result
 
-    def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, RANDOM_SEED=143):
+    def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, RANDOM_SEED=143,
+           bootstrap=False, split_rate=0.8):
         # Train LGB model using CV
-        kf = KFold(n_splits=nfold, shuffle=True, random_state=RANDOM_SEED)
+        np.random.seed(RANDOM_SEED)
+        if bootstrap:
+            l = X.shape[0]
+            t_size = int(split_rate * l)
+            splits = []
+            for _ in range(nfold):
+                rand = np.arange(0, l)
+                np.random.shuffle(rand)
+
+                splits.append((rand[:t_size], rand[t_size:]))
+
+        else:
+            kf = KFold(n_splits=nfold, shuffle=True, random_state=RANDOM_SEED)
+            splits = kf.split(X, y=Y)
 
         kFold_results = []
-        for train_index, val_index in kf.split(X, y=Y):
+        for train_index, val_index in splits:
             x_train = X[train_index]
             y_train = Y[train_index]
             x_val = X[val_index]
@@ -64,12 +79,28 @@ class LightGBM():
         print('Mean val error: {}, std {} '.format(
             kFold_results.mean(), kFold_results.std()))
 
-    def cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000, RANDOM_SEED=143, logloss=True):
-        '''Fit model using CV and predict test using the average of all folds'''
-        kf = KFold(n_splits=nfold, shuffle=True, random_state=RANDOM_SEED)
+    def cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
+                   RANDOM_SEED=143, logloss=True,
+                   bootstrap=False, split_rate=0.8):
+        '''Fit model using CV and predict test using the average
+         of all folds'''
+        np.random.seed(RANDOM_SEED)
+        if bootstrap:
+            l = X.shape[0]
+            t_size = int(split_rate * l)
+            splits = []
+            for _ in range(nfold):
+                rand = np.arange(0, l)
+                np.random.shuffle(rand)
+
+                splits.append((rand[:t_size], rand[t_size:]))
+
+        else:
+            kf = KFold(n_splits=nfold, shuffle=True, random_state=RANDOM_SEED)
+            splits = kf.split(X, y=Y)
 
         kFold_results = []
-        for i, (train_index, val_index) in enumerate(kf.split(X, y=Y)):
+        for i, (train_index, val_index) in enumerate(splits):
             x_train = X[train_index]
             y_train = Y[train_index]
             x_val = X[val_index]
