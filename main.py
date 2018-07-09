@@ -10,7 +10,7 @@ train_path = './train.csv'
 test_path = './test.csv'
 # Load and preprocess Dataset
 dataset = KaggleDataset(train_path, test_path=None)
-dataset.to_sparse(dataset='train')
+#dataset.to_sparse(dataset='train')
 #dataset.remove_constant_features()
 #dataset.remove_duplicated_features()
 # dataset.remove_different_distribution_features()

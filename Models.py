@@ -60,7 +60,7 @@ class LightGBM():
         return evals_result
 
     def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, random_seed=143,
-           bootstrap=False, split_rate=0.8):
+           bootstrap=False):
         # Train LGB model using CV
         if bootstrap:
             splits = generate_bagging_splits(
@@ -90,7 +90,7 @@ class LightGBM():
 
     def cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
                    random_seed=143, logloss=True,
-                   bootstrap=False, split_rate=0.8):
+                   bootstrap=False):
         '''Fit model using CV and predict test using the average
          of all folds'''
         if bootstrap:
