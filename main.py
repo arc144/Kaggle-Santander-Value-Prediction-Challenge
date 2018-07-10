@@ -9,8 +9,8 @@ from Submission import create_submission_file
 train_path = './train.csv'
 test_path = './test.csv'
 # Load and preprocess Dataset
-dataset = KaggleDataset(train_path, test_path=None)
-#dataset.to_sparse(dataset='train')
+dataset = KaggleDataset(train_path, test_path=test_path)
+#dataset.to_sparse(dataset='both')
 #dataset.remove_constant_features()
 #dataset.remove_duplicated_features()
 # dataset.remove_different_distribution_features()
@@ -24,6 +24,7 @@ X, Y = dataset.get_train_data(normalize=NORMALIZE, logloss=True,
                               #                              n_components=DIM_TO_KEEP,
                               #                              reduce_dim_nb=0,
                               reduce_dim_method='fa')
+X_test = dataset.get_test_data()
 # low_rep_X = dataset.reduce_dimensionality(X,
 #                                          n_components=DIM_TO_KEEP,
 #                                          method='fa',
@@ -32,7 +33,7 @@ X, Y = dataset.get_train_data(normalize=NORMALIZE, logloss=True,
 #X = np.concatenate([X, low_rep_X], axis=-1)
 
 #%% Split to train and val data
-RANDOM_SEED = 143
+RANDOM_SEED = 141
 NFOLD = 5
 
 # Train model on KFold
@@ -48,9 +49,9 @@ LightGBM_params = dict(num_leaves=53, lr=0.005, bagging_fraction=0.67,
 if MODEL_TYPE == 'LightGBM':
     model = LightGBM(**LightGBM_params)
 
-model.cv(X, Y, nfold=NFOLD,  ES_rounds=100,
-         steps=5000, RANDOM_SEED=RANDOM_SEED,
-         bootstrap=True, split_rate=0.8)
+pred = model.cv_predict(X, Y, X_test, nfold=NFOLD,  ES_rounds=100,
+                        steps=5000, random_seed=RANDOM_SEED,
+                        bootstrap=False, bagging_size_ratio=1.75)
 
 # %% GRIDSEARCHCV
 param_test1 = {
@@ -87,7 +88,6 @@ evals_result = model.fit(train_X=x_train, train_y=y_train,
                          steps=1000)
 
 # %%Create submission file
-X_test = dataset.get_test_data()
 # low_rep_X_test = dataset.reduce_dimensionality(X_test,
 #                                               n_components=DIM_TO_KEEP,
 #                                               method='fa',
@@ -95,5 +95,4 @@ X_test = dataset.get_test_data()
 #
 #X_test = np.concatenate([X_test, low_rep_X_test], axis=-1)
 
-pred = model.predict(X_test, logloss=True)
 create_submission_file(dataset.test_df.index, pred)

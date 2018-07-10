@@ -5,12 +5,11 @@ from catboost import CatBoostRegressor
 from sklearn.model_selection import KFold, train_test_split, GridSearchCV
 
 
-def generate_bagging_splits(n_size, nfold, out_size=None, random_seed=143):
+def generate_bagging_splits(n_size, nfold, bagging_size_ratio=1, random_seed=143):
     '''Generate random bagging splits'''
     np.random.seed(random_seed)
     ref = range(n_size)
-    if out_size is None:
-        out_size = n_size
+    out_size = int(bagging_size_ratio * n_size)
 
     splits = []
     for _ in range(nfold):
@@ -60,11 +59,13 @@ class LightGBM():
         return evals_result
 
     def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, random_seed=143,
-           bootstrap=False):
+           bootstrap=False, bagging_size_ratio=1):
         # Train LGB model using CV
         if bootstrap:
             splits = generate_bagging_splits(
-                X.shape[0], nfold, random_seed=random_seed)
+                X.shape[0], nfold,
+                bagging_size_ratio=bagging_size_ratio,
+                random_seed=random_seed)
 
         else:
             kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
@@ -90,12 +91,14 @@ class LightGBM():
 
     def cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
                    random_seed=143, logloss=True,
-                   bootstrap=False):
+                   bootstrap=False, bagging_size_ratio=1):
         '''Fit model using CV and predict test using the average
          of all folds'''
         if bootstrap:
             splits = generate_bagging_splits(
-                X.shape[0], nfold, random_seed=random_seed)
+                X.shape[0], nfold,
+                bagging_size_ratio=bagging_size_ratio,
+                random_seed=random_seed)
 
         else:
             kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
