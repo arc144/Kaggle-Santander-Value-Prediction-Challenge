@@ -10,6 +10,8 @@ train_path = './train.csv'
 test_path = './test.csv'
 # Load and preprocess Dataset
 dataset = KaggleDataset(train_path, test_path=None)
+dataset.compute_aggregates_for_most_important('train',
+                                              num=50, importance_type='split')
 #dataset.to_sparse(dataset='train')
 #dataset.remove_constant_features()
 #dataset.remove_duplicated_features()

@@ -1,7 +1,7 @@
 import numpy as np
 import lightgbm as lgb
 # import xgboost as xgb
-from catboost import CatBoostRegressor
+import catboost as cb
 from sklearn.model_selection import KFold, train_test_split, GridSearchCV
 
 
