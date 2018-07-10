@@ -18,6 +18,8 @@ def compute_row_aggregates(df):
     agg_df = pd.DataFrame(index=df.index)
     for index, row in df.iterrows():
         non_zero_values = row.iloc[row.nonzero()]
+        # if non_zero_values.empty:
+        #     print('EMPTY')
 
         agg_df.at[index, 'non_zero_mean'] = non_zero_values.mean()
         agg_df.at[index, 'non_zero_max'] = non_zero_values.max()
@@ -236,7 +238,7 @@ class KaggleDataset():
     def get_most_important_features(self, num=50, importance_type='split',
                                     random_seed=43):
         '''Get the column names for the most important features'''
-        LightGBM_params = dict(num_leaves=53, lr=0.005, bagging_fraction=0.67,
+        LightGBM_params = dict(num_leaves=53, lr=0.05, bagging_fraction=0.67,
                                feature_fraction=0.35, bagging_frequency=6,
                                min_data_in_leaf=21,
                                use_missing=True, zero_as_missing=True,
@@ -251,18 +253,34 @@ class KaggleDataset():
         model.fit(x_train, y_train, x_val, y_val, verbose=150)
         most_important = model.model.feature_importance(
             importance_type=importance_type)
-        index = np.argsort(most_important)[:-num]
+        index = np.argsort(most_important)[-num:]
         return index
 
-    # def get_aggregates_for_most_important(self, num=50,
-    #                                       importance_type='split',
-    #                                       random_seed=43):
-    #     '''Compute aggregate features for the most important features'''
-    #     features = self.get_most_important_features(num,
-    #                                                 importance_type,
-    #                                                 random_seed)
-    #     df =
-    #     agg = compute_row_aggregates()
+    def compute_aggregates_for_most_important(self, dataset, num=50,
+                                              importance_type='split',
+                                              random_seed=43):
+        '''Compute aggregate features for the most important features'''
+        index = self.get_most_important_features(num,
+                                                 importance_type,
+                                                 random_seed)
+
+        if dataset == 'train' or dataset == 'both':
+            features = self.train_df.drop('target', axis=1).values[:, index]
+            print(features.shape)
+            df = pd.DataFrame(features, index=self.train_df.index)
+            print(df)
+            train_agg = compute_row_aggregates(df)
+
+        if dataset == 'test' or dataset == 'both':
+            features = self.test_df.values[:, index]
+            df = pd.DataFrame(features, index=self.train_df.index)
+            test_agg = compute_row_aggregates(df)
+
+        # Concatenate with default aggregates
+        if dataset == 'train' or dataset == 'both':
+            self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
+        if dataset == 'test' or dataset == 'both':
+            self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
 
 if __name__ == '__main__':
     train_path = './train.csv'
