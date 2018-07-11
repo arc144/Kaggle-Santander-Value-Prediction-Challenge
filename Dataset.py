@@ -4,8 +4,14 @@ from sklearn.preprocessing import MaxAbsScaler
 from sklearn.decomposition import TruncatedSVD, SparsePCA, FactorAnalysis
 from sklearn.random_projection import SparseRandomProjection
 from scipy.stats import ks_2samp
+from scipy.stats import kurtosis, skew
 from Models import LightGBM
 from sklearn.model_selection import train_test_split
+
+
+def geo_mean_overflow(iterable):
+    a = np.log(iterable)
+    return np.exp(a.sum() / len(a))
 
 
 def load_df_from_path(path):
@@ -13,22 +19,32 @@ def load_df_from_path(path):
     return df
 
 
-def compute_row_aggregates(df):
+def compute_row_aggregates(df, prefix=''):
     '''Add series of aggreagates to dataset rowise'''
     agg_df = pd.DataFrame(index=df.index)
     for index, row in df.iterrows():
         non_zero_values = row.iloc[row.nonzero()]
-        # if non_zero_values.empty:
-        #     print('EMPTY')
 
-        agg_df.at[index, 'non_zero_mean'] = non_zero_values.mean()
-        agg_df.at[index, 'non_zero_max'] = non_zero_values.max()
-        agg_df.at[index, 'non_zero_min'] = non_zero_values.min()
-        agg_df.at[index, 'non_zero_std'] = np.std(non_zero_values.values)
-        agg_df.at[index, 'non_zero_sum'] = non_zero_values.sum()
-        agg_df.at[index, 'non_zero_count'] = non_zero_values.count()
-        agg_df.at[index, 'non_zero_fraction'] = \
+        agg_df.at[index, '{}_non_zero_mean'.format(
+            prefix)] = non_zero_values.mean()
+        agg_df.at[index, '{}_non_zero_max'.format(
+            prefix)] = non_zero_values.max()
+        agg_df.at[index, '{}_non_zero_min'.format(
+            prefix)] = non_zero_values.min()
+        agg_df.at[index, '{}_non_zero_std'.format(
+            prefix)] = np.std(non_zero_values.values)
+        agg_df.at[index, '{}_non_zero_sum'.format(
+            prefix)] = non_zero_values.sum()
+        agg_df.at[index, '{}_non_zero_count'.format(
+            prefix)] = non_zero_values.count()
+        agg_df.at[index, '{}_non_zero_fraction'.format(prefix)] = \
             non_zero_values.count() / row.count()
+        agg_df.at[index, '{}_non_zero_geo_mean'.format(prefix)] = \
+            geo_mean_overflow(non_zero_values.values)
+        # agg_df.at[index, '{}_non_zero_skewness'.format(prefix)] = \
+        #     skew(non_zero_values.values)
+        # agg_df.at[index, '{}_non_zero_kurtosis'.format(prefix)] = \
+        #     kurtosis(non_zero_values.values)
     return agg_df
 
 
@@ -36,7 +52,7 @@ class KaggleDataset():
     '''Class used to load Kaggle's official datasets'''
 
     def __init__(self, train_path, test_path=None, join_dfs=False,
-                 verbose=True):
+                 aggregates=True, verbose=True):
         self.train_path = train_path
         self.test_path = test_path
         self.verbose = verbose
@@ -59,10 +75,16 @@ class KaggleDataset():
             self.joint_df = pd.concat([self.train_df, self.test_df], axis=0)
 
         # Pre-compute aggregates
-        self.train_agg = compute_row_aggregates(
-            self.train_df.drop(["target"], axis=1))
-        if test_path is not None:
-            self.test_agg = compute_row_aggregates(self.test_df)
+        if aggregates:
+            self.train_agg = compute_row_aggregates(
+                self.train_df.drop(["target"], axis=1), prefix='global')
+            if test_path is not None:
+                self.test_agg = compute_row_aggregates(
+                    self.test_df, prefix='global')
+        else:
+            self.train_agg = pd.DataFrame(index=self.train_df.index)
+            if test_path is not None:
+                self.test_agg = pd.DataFrame(index=self.test_df.index)
 
     def get_train_data(self, logloss=True, normalize=False, n_components=None,
                        reduce_dim_nb=0, use_aggregates=True,
@@ -82,7 +104,7 @@ class KaggleDataset():
 
         # Preprocess if required
         if reduce_dim_nb or n_components is not None:
-            x = self.reduce_dimensionality(x,
+            x = self.reduce_dimensionality('train',
                                            n_components=n_components,
                                            red_num=reduce_dim_nb,
                                            method=reduce_dim_method,
@@ -101,7 +123,7 @@ class KaggleDataset():
         x = self.test_df.values
         # Preprocess if required
         if self.reduce_dim_nb:
-            x = self.reduce_dimensionality(x, self.reduce_dim_nb,
+            x = self.reduce_dimensionality('test', self.reduce_dim_nb,
                                            method=self.reduce_dim_method,
                                            fit=False,
                                            verbose=self.verbose)
@@ -113,6 +135,17 @@ class KaggleDataset():
             x = np.concatenate([x, self.test_agg.values], axis=-1)
 
         return x
+
+    def get_aggregates_as_data(self, dataset):
+        '''Get aggregates as np data'''
+        if dataset == 'train':
+            x = self.train_agg.values
+            y = self.train_df["target"].values
+            return x, y
+
+        elif dataset == 'test':
+            x = self.test_agg.values
+            return x
 
     def remove_constant_features(self, verbose=True):
         '''Remove features that are constant for all train set entries'''
@@ -202,10 +235,15 @@ class KaggleDataset():
             print('Data normalized.')
         return x
 
-    def reduce_dimensionality(self, x, n_components=None, red_num=None,
+    def reduce_dimensionality(self, dataset, n_components=None, red_num=None,
                               method='svd', fit=True, verbose=True):
         '''Reduce #red_num of features from the dataset'''
         assert method in ['svd', 'srp', 'fa']
+        if dataset == 'train':
+            x = self.train_df.drop(["target"], axis=1).values
+        elif dataset == 'test':
+            x = self.test_df.values
+
         if n_components is None:
             n_components = x.shape[0] - red_num
         elif n_components == -1:
@@ -230,15 +268,38 @@ class KaggleDataset():
 
         if verbose:
             print(red_num, ' less important features removed.')
-            # print('Importance ratios are: ',
-            #       self.reductor.explained_variance_ratio_)
             print('Data new shape: ', x.shape)
         return x
+
+    def add_decomposition_as_features(self, dataset='both', n_components=None,
+                                      method='svd', comp_stats=False,
+                                      verbose=True):
+        '''Perform feature decomposition and add as an aggregate'''
+        if dataset == 'train' or dataset == 'both':
+            train_agg = self.reduce_dimensionality(
+                dataset='train', n_components=n_components,
+                method=method, fit=True, verbose=verbose)
+            train_agg = pd.DataFrame(train_agg, index=self.train_df.index)
+            self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
+            if comp_stats:
+                train_agg = compute_row_aggregates(train_agg, prefix='dec')
+                self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
+
+        if dataset == 'test' or dataset == 'both':
+            test_agg = self.reduce_dimensionality(
+                dataset='test', n_components=n_components,
+                method=method, fit=False, verbose=verbose)
+            test_agg = pd.DataFrame(test_agg, index=self.test_df.index)
+            self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
+            if comp_stats:
+                test_agg = compute_row_aggregates(test_agg, prefix='dec')
+                self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
 
     def get_most_important_features(self, num=50, importance_type='split',
                                     random_seed=43):
         '''Get the column names for the most important features'''
-        LightGBM_params = dict(num_leaves=53, lr=0.05, bagging_fraction=0.67,
+        assert importance_type in ['split', 'gain']
+        LightGBM_params = dict(num_leaves=53, lr=0.005, bagging_fraction=0.67,
                                feature_fraction=0.35, bagging_frequency=6,
                                min_data_in_leaf=21,
                                use_missing=True, zero_as_missing=True,
@@ -250,7 +311,7 @@ class KaggleDataset():
         x, y = self.get_train_data(use_aggregates=False)
         x_train, x_val, y_train, y_val = train_test_split(
             x, y, test_size=0.2, random_state=random_seed)
-        model.fit(x_train, y_train, x_val, y_val, verbose=150)
+        model.fit(x_train, y_train, x_val, y_val, verbose=0)
         most_important = model.model.feature_importance(
             importance_type=importance_type)
         index = np.argsort(most_important)[-num:]
@@ -266,21 +327,34 @@ class KaggleDataset():
 
         if dataset == 'train' or dataset == 'both':
             features = self.train_df.drop('target', axis=1).values[:, index]
-            print(features.shape)
             df = pd.DataFrame(features, index=self.train_df.index)
-            print(df)
-            train_agg = compute_row_aggregates(df)
+            train_agg = compute_row_aggregates(
+                df, prefix='{}_most_important'.format(num))
 
         if dataset == 'test' or dataset == 'both':
             features = self.test_df.values[:, index]
-            df = pd.DataFrame(features, index=self.train_df.index)
-            test_agg = compute_row_aggregates(df)
+            df = pd.DataFrame(features, index=self.test_df.index)
+            test_agg = compute_row_aggregates(
+                df, prefix='{}_most_important'.format(num))
 
         # Concatenate with default aggregates
         if dataset == 'train' or dataset == 'both':
             self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
         if dataset == 'test' or dataset == 'both':
             self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
+
+    def compute_meta_aggregates(self, dataset='both'):
+        '''Compute aggregate features for the existing aggregate features'''
+        if dataset == 'train' or dataset == 'both':
+            train_agg = compute_row_aggregates(
+                self.train_agg, prefix='meta')
+            self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
+
+        if dataset == 'test' or dataset == 'both':
+            test_agg = compute_row_aggregates(
+                self.test_agg, prefix='meta')
+            self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
+
 
 if __name__ == '__main__':
     train_path = './train.csv'

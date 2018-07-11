@@ -1,0 +1,76 @@
+Bagging 1.75 ratio 5 folds
+	Mean val error: 1.36941862258657, std 0.029880819199465555 
+Bagging 1.75 ratio 3 folds
+	Mean val error: 1.3646746615370446, std 0.03141696736017168 
+
+LightGBM num_leaves=53, lr=0.005, bagging_fraction=0.67, feature_fraction=0.35, min_data_in_leaf=21, use_missing=True, zero_as_missing=False, lambda_l1=0.1, lambda_l2=10
+	CV5, seed 143
+		No Aggregates
+			Mean val error: 1.4155209339457087, std 0.03658327826511384 
+		GlobalAggregates
+			Mean val error: 1.3545995742944643, std 0.044048464647966266
+		GlobalAggregates, geometric mean
+			Mean val error: 1.3431113915819026, std 0.04062314962311399  
+		LocalAggregates: 75, gain, geometric mean
+			Mean val error: 1.4000667493927537, std 0.04220548119087758 
+
+		GlobalAggregates	
+			LocalAggregates: 5, gain
+				Mean val error: 1.3567407979552664, std 0.04688571952858414 
+			LocalAggregates: 10, split
+				Mean val error: 1.3541725444350092, std 0.04194191762550347
+			LocalAggregates: 10, gain
+				Mean val error: 1.3530084813783003, std 0.04319443792695975 
+			LocalAggregates: 20, gain
+				Mean val error: 1.349727254356069, std 0.04116137684282106 
+			LocalAggregates: 20, gain, geometric mean
+				Mean val error: 1.3416251767955036, std 0.038450536382205726 
+			LocalAggregates: 30, gain, geometric mean
+				Mean val error: 1.3407955119418928, std 0.03607733058670922 
+			LocalAggregates: 50, gain, geometric mean
+				Mean val error: 1.3397404887899924, std 0.03992716804499408
+			LocalAggregates: 70, gain, geometric mean                                     
+				Mean val error: 1.3408500920699569, std 0.04032928516457705
+			LocalAggregates: 75, gain, geometric mean                                     
+				Mean val error: 1.3389673376851963, std 0.04095176614900437 LB 1.39
+			LocalAggregates: 75, split, geometric mean                                    
+				Mean val error: 1.3405079349389837, std 0.037172251515921004
+			LocalAggregates: 76, split, geometric mean
+				Mean val error: 1.3396214306157237, std 0.040303346848424994 
+			LocalAggregates: 77, split, geometric mean
+				Mean val error: 1.339534903295824, std 0.04057733389670634 
+			LocalAggregates: 80, gain, geometric mean                                     
+				Mean val error: 1.3401544944565384, std 0.04107769353226356 
+			LocalAggregates: 100, gain, geometric mean
+				Mean val error: 1.3401776709928341, std 0.03970333270786966 
+
+
+			LocalAggregates: 25 + 50 + 75, gain, geometric mean 
+				Mean val error: 1.3410258561662722, std 0.03905768459309401 
+
+			LocalAggregates: 75 gain + 75 split, geometric mean
+				Mean val error: 1.3394872033690999, std 0.03925492491446367
+
+
+			LocalAggregates: 75, gain + geometric mean + skew + kurtosis
+				Mean val error: 1.3389955186204396, std 0.042614705605176065
+			LocalAggregates: 75, gain + geometric mean + meta aggregates
+				Mean val error: 1.3409929961759512, std 0.040663314561884094
+			LocalAggregates: 75, gain + geometric mean - min
+				Mean val error: 1.3428734114136496, std 0.038674336021608406 
+			LocalAggregates: 75, gain + geometric mean - count
+				Mean val error: 1.3400647347698018, std 0.04066844061347034
+			LocalAggregates: 75, gain + geometric mean - fraction
+				Mean val error: 1.3400647347698018, std 0.0406684406134703 
+
+			LocalAggregates: 75, gain, geometric mean
+				+ 50 FA decomposition
+					Mean val error: 1.3372721439813686, std 0.04348997507661038
+					Aggregates for dec as well										
+						Mean val error: 1.3360102059767602, std 0.04190702208571435 
+						+50 srp
+							Mean val error: 1.335452658937861, std 0.044033668943884705						
+						+50 pca
+							Mean val error: 1.3341546127336334, std 0.039061540442222514 			BEST
+							+ 50 srp
+								Mean val error: 1.3365705664050131, std 0.03732853603755924

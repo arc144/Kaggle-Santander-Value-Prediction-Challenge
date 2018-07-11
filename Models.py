@@ -144,3 +144,25 @@ class LightGBM():
         evals_result = self.fit(train_X, train_y, val_X, val_y)
         pred_y = self.predict(test_X, logloss)
         return evals_result, pred_y
+
+    def optmize_params(self, param_grid, X, Y, cv=4, verbose=1):
+        '''Use GridSearchCV to optimize models params'''
+        param_test1 = {
+            'reg_lambda': [1e-5, 1e-2, 0.1, 1, 100],
+        }
+
+        gsearch1 = GridSearchCV(estimator=lgb.LGBMModel(**self.params),
+                                param_grid=param_test1,
+                                scoring='neg_mean_squared_error',
+                                n_jobs=1,
+                                iid=False,
+                                cv=4)
+        gsearch1.fit(X, Y)
+        scores = gsearch1.grid_scores_
+        best_params = gsearch1.best_params_
+        best_score = np.sqrt(-gsearch1.best_score_)
+        if verbose > 0:
+            if verbose > 1:
+                print('Scores are: ', scores)
+            print('Best params: ', best_params)
+            print('Best score: ', best_score)
