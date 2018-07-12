@@ -3,7 +3,7 @@ from Dataset import KaggleDataset
 from Models import LightGBM
 from Submission import create_submission_file
 
-LOAD_TEST = True
+LOAD_TEST = False
 # Define paths and anything related to OS
 train_path = './train.csv'
 if LOAD_TEST:
@@ -76,12 +76,12 @@ if MODEL_TYPE == 'LightGBM':
 
 if LOAD_TEST:
     pred = model.cv_predict(X, Y, X_test, nfold=NFOLD,  ES_rounds=100,
-                            steps=5000, random_seed=RANDOM_SEED,
+                            steps=50000, random_seed=RANDOM_SEED,
                             bootstrap=BAGGING, bagging_size_ratio=1)
   
 else:
     pred = model.cv(X, Y, nfold=NFOLD,  ES_rounds=100,
-                    steps=5000, random_seed=RANDOM_SEED,
+                    steps=50000, random_seed=RANDOM_SEED,
                     bootstrap=BAGGING, bagging_size_ratio=1)
 
 

@@ -106,4 +106,7 @@ LightGBM num_leaves=53, lr=0.005, bagging_fraction=0.67, feature_fraction=0.35, 
 				+ 75 FA decomposition + 50 svd
 					Mean val error: 1.3387289269113207, std 0.01368162419333837 LB1.38
 				No raw features 
-					Mean val error: 1.33872629642032, std 0.011982863715543293 
+					Mean val error: 1.33872629642032, std 0.011982863715543293
+					Mean val error: 1.3377817683273603, std 0.011454351603933837
+					Normalize first
+						Mean val error: 1.3433437251267228, std 0.012681162305750119 

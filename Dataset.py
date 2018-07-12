@@ -345,10 +345,11 @@ class KaggleDataset():
         '''Get the column names for the most important features'''
         assert importance_type in ['split', 'gain']
         LightGBM_params = dict(num_leaves=53, lr=0.005, bagging_fraction=0.67,
-                               feature_fraction=0.35, bagging_frequency=6,
-                               min_data_in_leaf=21,
+                               max_depth=8, min_sum_hessian_in_leaf=1e-1,
+                               feature_fraction=0.35, bagging_freq=3,
+                               min_data_in_leaf=12,
                                use_missing=True, zero_as_missing=True,
-                               lambda_l1=0.1, lambda_l2=10,
+                               lambda_l1=0.1, lambda_l2=1,
                                device='cpu', num_threads=8)
 
         model = LightGBM(**LightGBM_params)
