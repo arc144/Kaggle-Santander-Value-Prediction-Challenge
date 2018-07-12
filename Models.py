@@ -2,7 +2,7 @@ import numpy as np
 import lightgbm as lgb
 # import xgboost as xgb
 import catboost as cb
-from sklearn.model_selection import KFold, train_test_split, GridSearchCV
+from sklearn.model_selection import KFold, GridSearchCV
 
 
 def generate_bagging_splits(n_size, nfold, bagging_size_ratio=1, random_seed=143):
@@ -131,6 +131,26 @@ class LightGBM():
         # Divide pred by the number of folds and return
         return pred_y / nfold
 
+    def multi_seed_cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
+                              random_seed=[143, 135, 138], logloss=True,
+                              bootstrap=False, bagging_size_ratio=1):
+        '''Perform cv_predict for multiple seeds and avg them'''
+        for i, seed in enumerate(random_seed):
+            if not i:
+                pred = self.cv_predict(X, Y, test_X, nfold=nfold,
+                                       ES_rounds=ES_rounds, steps=steps,
+                                       random_seed=seed, logloss=logloss,
+                                       bootstrap=bootstrap,
+                                       bagging_size_ratio=bagging_size_ratio)
+            else:
+                pred += self.cv_predict(X, Y, test_X, nfold=nfold,
+                                        ES_rounds=ES_rounds, steps=steps,
+                                        random_seed=seed, logloss=logloss,
+                                        bootstrap=bootstrap,
+                                        bagging_size_ratio=bagging_size_ratio)
+
+        return pred / len(random_seed)
+
     def predict(self, test_X, logloss=True):
         '''Predict using a fitted model'''
         pred_y = self.model.predict(
@@ -145,14 +165,22 @@ class LightGBM():
         pred_y = self.predict(test_X, logloss)
         return evals_result, pred_y
 
-    def optmize_params(self, param_grid, X, Y, cv=4, verbose=1):
+    def optmize_hyperparams(self, param_grid, X, Y, cv=4, verbose=1):
         '''Use GridSearchCV to optimize models params'''
-        param_test1 = {
-            'reg_lambda': [1e-5, 1e-2, 0.1, 1, 100],
-        }
+        # Convert default params to  SkLearn
+        self.params['min_split_gain'] = self.params.get('min_gain_to_split', 0)
+        # self.params['subsample_for_bin'] = self.params['max_bin']
+        self.params['subsample'] = self.params['bagging_fraction']
+        self.params['subsample_freq'] = self.params['bagging_freq']
+        self.params['colsample_bytree'] = self.params['feature_fraction']
+        self.params['min_child_weight'] = self.params.get(
+            'min_sum_hessian_in_leaf', 1e-3)
+        self.params['reg_lambda'] = self.params['lambda_l2']
+        self.params['reg_alpha'] = self.params['lambda_l1']
+        self.params['min_child_samples'] = self.params['min_data_in_leaf']
 
         gsearch1 = GridSearchCV(estimator=lgb.LGBMModel(**self.params),
-                                param_grid=param_test1,
+                                param_grid=param_grid,
                                 scoring='neg_mean_squared_error',
                                 n_jobs=1,
                                 iid=False,

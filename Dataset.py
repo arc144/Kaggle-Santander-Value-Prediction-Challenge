@@ -24,7 +24,10 @@ def compute_row_aggregates(df, prefix=''):
     agg_df = pd.DataFrame(index=df.index)
     for index, row in df.iterrows():
         non_zero_values = row.iloc[row.nonzero()]
+        if non_zero_values.empty:
+            continue
 
+        non_zero_values = non_zero_values.values
         agg_df.at[index, '{}_non_zero_mean'.format(
             prefix)] = non_zero_values.mean()
         agg_df.at[index, '{}_non_zero_max'.format(
@@ -32,19 +35,51 @@ def compute_row_aggregates(df, prefix=''):
         agg_df.at[index, '{}_non_zero_min'.format(
             prefix)] = non_zero_values.min()
         agg_df.at[index, '{}_non_zero_std'.format(
-            prefix)] = np.std(non_zero_values.values)
+            prefix)] = np.std(non_zero_values)
         agg_df.at[index, '{}_non_zero_sum'.format(
             prefix)] = non_zero_values.sum()
-        agg_df.at[index, '{}_non_zero_count'.format(
-            prefix)] = non_zero_values.count()
-        agg_df.at[index, '{}_non_zero_fraction'.format(prefix)] = \
-            non_zero_values.count() / row.count()
-        agg_df.at[index, '{}_non_zero_geo_mean'.format(prefix)] = \
-            geo_mean_overflow(non_zero_values.values)
+        agg_df.at[index, '{}non_zero_median'.format(prefix)] = \
+            np.median(non_zero_values)
+        agg_df.at[index, '{}non_zero_q1'.format(prefix)] = \
+            np.percentile(non_zero_values, q=25)
+        agg_df.at[index, '{}non_zero_q3'.format(prefix)] = \
+            np.percentile(non_zero_values, q=75)
+        agg_df.at[index, '{}_non_zero_gmean'.format(prefix)] = \
+            geo_mean_overflow(non_zero_values)
         # agg_df.at[index, '{}_non_zero_skewness'.format(prefix)] = \
-        #     skew(non_zero_values.values)
+        #     skew(non_zero_values)
         # agg_df.at[index, '{}_non_zero_kurtosis'.format(prefix)] = \
-        #     kurtosis(non_zero_values.values)
+        #     kurtosis(non_zero_values)
+
+        # LOG AGGREGATES
+        agg_df.at[index, '{}non_zero_log_mean'.format(prefix)] = \
+            np.log1p(non_zero_values).mean()
+        agg_df.at[index, '{}non_zero_log_max'.format(prefix)] = \
+            np.log1p(non_zero_values).max()
+        agg_df.at[index, '{}non_zero_log_min'.format(prefix)] = \
+            np.log1p(non_zero_values).min()
+        agg_df.at[index, '{}non_zero_log_std'.format(prefix)] = \
+            np.log1p(np.std(non_zero_values))
+        agg_df.at[index, '{}non_zero_log_sum'.format(prefix)] = \
+            np.log1p(non_zero_values).sum()
+        agg_df.at[index, '{}non_zero_log_median'.format(prefix)] = \
+            np.median(np.log1p(non_zero_values))
+        agg_df.at[index, '{}non_zero_log_q1'.format(prefix)] = \
+            np.percentile(np.log1p(non_zero_values), q=25)
+        agg_df.at[index, '{}non_zero_log_q3'.format(prefix)] = \
+            np.percentile(np.log1p(non_zero_values), q=75)
+        agg_df.at[index, '{}non_zero_log_gmean'.format(prefix)] = \
+            geo_mean_overflow(np.log1p(non_zero_values))
+        # agg_df.at[index, '{}non_zero_log_skewness'.format(prefix)] = \
+        #     skew(np.log1p(non_zero_values))
+        # agg_df.at[index, '{}non_zero_log_kurtosis'.format(prefix)] = \
+        #     kurtosis(np.log1p(non_zero_values))
+
+        agg_df.at[index, '{}_non_zero_count'.format(
+            prefix)] = np.count_nonzero(~np.isnan(non_zero_values))
+        agg_df.at[index, '{}_non_zero_fraction'.format(prefix)] = \
+            np.count_nonzero(~np.isnan(non_zero_values)) / \
+            np.count_nonzero(~np.isnan(row))
     return agg_df
 
 
@@ -103,14 +138,15 @@ class KaggleDataset():
             y = self.train_df["target"].values
 
         # Preprocess if required
+        if normalize:
+            x = self.normalize_data(x, fit=True, verbose=self.verbose)
+
         if reduce_dim_nb or n_components is not None:
             x = self.reduce_dimensionality('train',
                                            n_components=n_components,
                                            red_num=reduce_dim_nb,
                                            method=reduce_dim_method,
                                            verbose=self.verbose)
-        if normalize:
-            x = self.normalize_data(x, fit=True, verbose=self.verbose)
 
         # Compute aggregates if required
         if use_aggregates:
@@ -122,13 +158,14 @@ class KaggleDataset():
          as trainning data'''
         x = self.test_df.values
         # Preprocess if required
+        if self.normalize:
+            x = self.normalize_data(x, fit=False, verbose=self.verbose)
+
         if self.reduce_dim_nb:
             x = self.reduce_dimensionality('test', self.reduce_dim_nb,
                                            method=self.reduce_dim_method,
                                            fit=False,
                                            verbose=self.verbose)
-        if self.normalize:
-            x = self.normalize_data(x, fit=False, verbose=self.verbose)
 
         # Compute aggregates if required
         if self.use_aggregates:
@@ -136,11 +173,14 @@ class KaggleDataset():
 
         return x
 
-    def get_aggregates_as_data(self, dataset):
+    def get_aggregates_as_data(self, dataset, logloss=True):
         '''Get aggregates as np data'''
         if dataset == 'train':
             x = self.train_agg.values
-            y = self.train_df["target"].values
+            if logloss:
+                y = np.log1p(self.train_df["target"].values)
+            else:
+                y = self.train_df["target"].values
             return x, y
 
         elif dataset == 'test':
@@ -236,13 +276,18 @@ class KaggleDataset():
         return x
 
     def reduce_dimensionality(self, dataset, n_components=None, red_num=None,
-                              method='svd', fit=True, verbose=True):
+                              method='svd', fit=True, normalize=False,
+                              verbose=True):
         '''Reduce #red_num of features from the dataset'''
         assert method in ['svd', 'srp', 'fa']
         if dataset == 'train':
             x = self.train_df.drop(["target"], axis=1).values
+            if normalize:
+                x = self.normalize_data(x, fit=True)
         elif dataset == 'test':
             x = self.test_df.values
+            if normalize:
+                x = self.normalize_data(x, fit=False)
 
         if n_components is None:
             n_components = x.shape[0] - red_num
@@ -273,12 +318,12 @@ class KaggleDataset():
 
     def add_decomposition_as_features(self, dataset='both', n_components=None,
                                       method='svd', comp_stats=False,
-                                      verbose=True):
+                                      verbose=True, normalize=False):
         '''Perform feature decomposition and add as an aggregate'''
         if dataset == 'train' or dataset == 'both':
             train_agg = self.reduce_dimensionality(
                 dataset='train', n_components=n_components,
-                method=method, fit=True, verbose=verbose)
+                method=method, fit=True, normalize=normalize, verbose=verbose)
             train_agg = pd.DataFrame(train_agg, index=self.train_df.index)
             self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
             if comp_stats:
@@ -288,7 +333,7 @@ class KaggleDataset():
         if dataset == 'test' or dataset == 'both':
             test_agg = self.reduce_dimensionality(
                 dataset='test', n_components=n_components,
-                method=method, fit=False, verbose=verbose)
+                method=method, fit=False, normalize=normalize, verbose=verbose)
             test_agg = pd.DataFrame(test_agg, index=self.test_df.index)
             self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
             if comp_stats:
