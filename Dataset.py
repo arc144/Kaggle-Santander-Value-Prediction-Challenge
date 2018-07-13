@@ -88,7 +88,7 @@ class KaggleDataset():
     '''Class used to load Kaggle's official datasets'''
 
     def __init__(self, train_path, test_path=None, join_dfs=False,
-                 aggregates=True, verbose=True):
+                 verbose=True):
         self.train_path = train_path
         self.test_path = test_path
         self.verbose = verbose
@@ -110,17 +110,10 @@ class KaggleDataset():
         if join_dfs:
             self.joint_df = pd.concat([self.train_df, self.test_df], axis=0)
 
-        # Pre-compute aggregates
-        if aggregates:
-            self.train_agg = compute_row_aggregates(
-                self.train_df.drop(["target"], axis=1), prefix='global')
-            if test_path is not None:
-                self.test_agg = compute_row_aggregates(
-                    self.test_df, prefix='global')
-        else:
-            self.train_agg = pd.DataFrame(index=self.train_df.index)
-            if test_path is not None:
-                self.test_agg = pd.DataFrame(index=self.test_df.index)
+        # Create aggregates dfs
+        self.train_agg = pd.DataFrame(index=self.train_df.index)
+        if test_path is not None:
+            self.test_agg = pd.DataFrame(index=self.test_df.index)
 
     def get_train_data(self, logloss=True, normalize=False, n_components=None,
                        reduce_dim_nb=0, use_aggregates=True,
@@ -243,7 +236,7 @@ class KaggleDataset():
         if verbose:
             print('{} features removed.'.format(len(diff_cols)))
 
-    def keep_only_selected_features(self, dataset='both'):
+    def keep_only_selected_features(self, dataset='both', return_only=False):
         '''Remove all columns except for the hand picked ones'''
         features = [
             'f190486d6', 'c47340d97', 'eeb9cd3aa', '66ace2992', 'e176a204a',
@@ -256,10 +249,22 @@ class KaggleDataset():
             'b43a7cfd5', '9306da53f', 'd6bb78916', 'fb0f5dbfe', '6eef030c1'
         ]
         if dataset == 'test' or dataset == 'both':
-            self.test_df = self.test_df.filter(items=features)
+            new_test_df = self.test_df.filter(items=features)
+            if not return_only:
+                self.test_df = new_test_df
         if dataset == 'train' or dataset == 'both':
             features.append('target')
-            self.train_df = self.train_df.filter(items=features)
+            new_train_df = self.train_df.filter(items=features)
+            if not return_only:
+                self.train_df = new_train_df
+
+        if return_only:
+            if dataset == 'train':
+                return new_train_df
+            elif dataset == 'test':
+                return new_test_df
+            elif dataset == 'both':
+                return new_train_df, new_test_df
 
     def to_sparse(self, dataset='both', verbose=True):
         '''Transform datasets to sparse by removing zeros'''
@@ -382,6 +387,36 @@ class KaggleDataset():
         index = np.argsort(most_important)[-num:]
         return index
 
+    def compute_aggregates_for_all_features(self, dataset):
+        '''Compute aggregates for all features'''
+        if dataset == 'train' or dataset == 'both':
+            train_agg = compute_row_aggregates(
+                self.train_df.drop(["target"], axis=1), prefix='global')
+            # Add to aggregates
+            self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
+
+        if dataset == 'test' or dataset == 'both':
+            test_agg = compute_row_aggregates(
+                self.test_df, prefix='global')
+            # Add to aggregates
+            self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
+
+    def compute_aggregates_for_selected_features(self, dataset):
+        '''Compute aggregate features for the hand selected features'''
+        if dataset == 'train' or dataset == 'both':
+            df = self.keep_only_selected_features('train', return_only=True)
+            train_agg = compute_row_aggregates(
+                df, prefix='hand_picked')
+            # Add to aggregates
+            self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
+
+        if dataset == 'test' or dataset == 'both':
+            df = self.keep_only_selected_features('test', return_only=True)
+            test_agg = compute_row_aggregates(
+                df, prefix='hand_picked')
+            # Add to aggregates
+            self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
+
     def compute_aggregates_for_most_important(self, dataset, num=50,
                                               importance_type='split',
                                               random_seed=43):
@@ -395,17 +430,15 @@ class KaggleDataset():
             df = pd.DataFrame(features, index=self.train_df.index)
             train_agg = compute_row_aggregates(
                 df, prefix='{}_most_important'.format(num))
+            # Add to aggregates
+            self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
 
         if dataset == 'test' or dataset == 'both':
             features = self.test_df.values[:, index]
             df = pd.DataFrame(features, index=self.test_df.index)
             test_agg = compute_row_aggregates(
                 df, prefix='{}_most_important'.format(num))
-
-        # Concatenate with default aggregates
-        if dataset == 'train' or dataset == 'both':
-            self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
-        if dataset == 'test' or dataset == 'both':
+            # Add to aggregates
             self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
 
     def compute_meta_aggregates(self, dataset='both'):

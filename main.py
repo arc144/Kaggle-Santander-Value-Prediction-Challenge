@@ -3,7 +3,7 @@ from Dataset import KaggleDataset
 from Models import LightGBM
 from Submission import create_submission_file
 
-LOAD_TEST = False
+LOAD_TEST = True
 # Define paths and anything related to OS
 train_path = './train.csv'
 if LOAD_TEST:
@@ -11,21 +11,27 @@ if LOAD_TEST:
 else:
     test_path = None
 # Load and preprocess Dataset
-dataset = KaggleDataset(train_path, test_path=test_path, aggregates=True)
-dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
-#dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
+dataset = KaggleDataset(train_path, test_path=test_path)
+
+#dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
+
+#dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
+
+dataset.compute_aggregates_for_selected_features('both' if LOAD_TEST else 'train')
+
+# dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
 #                                              num=75, importance_type='gain')
 
-#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+# dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 #                                      n_components=50, method='fa',
 #                                      comp_stats=False,
 #                                      normalize=False)
 #
-#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+# dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 #                                      n_components=50, method='svd',
 #                                      comp_stats=False,
 #                                      normalize=False)
-#dataset.compute_cluster_features('both' if LOAD_TEST else 'train', 
+# dataset.compute_cluster_features('both' if LOAD_TEST else 'train',
 #                                 iter_cluster=range(2, 7))
 
 # dataset.compute_meta_aggregates('both' if LOAD_TEST else 'train')
@@ -45,10 +51,10 @@ if ONLY_AGGREGATES:
     X, Y = dataset.get_aggregates_as_data('train')
 else:
     X, Y = dataset.get_train_data(normalize=NORMALIZE, logloss=True,
-                              use_aggregates=AGGREGATES,
-#                              n_components=DIM_TO_KEEP,
-                              #reduce_dim_nb=0,
-                              reduce_dim_method='fa')
+                                  use_aggregates=AGGREGATES,
+                                  #                              n_components=DIM_TO_KEEP,
+                                  # reduce_dim_nb=0,
+                                  reduce_dim_method='fa')
 if LOAD_TEST:
     if ONLY_AGGREGATES:
         X_test = dataset.get_aggregates_as_data('test')
@@ -80,7 +86,7 @@ if LOAD_TEST:
     pred = model.cv_predict(X, Y, X_test, nfold=NFOLD,  ES_rounds=100,
                             steps=50000, random_seed=RANDOM_SEED,
                             bootstrap=BAGGING, bagging_size_ratio=1)
-  
+
 else:
     pred = model.cv(X, Y, nfold=NFOLD,  ES_rounds=100,
                     steps=50000, random_seed=RANDOM_SEED,
