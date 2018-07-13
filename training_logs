@@ -110,3 +110,24 @@ LightGBM num_leaves=53, lr=0.005, bagging_fraction=0.67, feature_fraction=0.35, 
 					Mean val error: 1.3377817683273603, std 0.011454351603933837
 					Normalize first
 						Mean val error: 1.3433437251267228, std 0.012681162305750119 
+					KMeans 2~10
+						Mean val error: 1.3363991671407307, std 0.014564320232328655 
+					KMeans 2~7	
+						Mean val error: 1.3355716919673746, std 0.01540773474065364
+						Mean val error: 1.33394100185117, std 0.014472556217419767
+					KMeans 2~4	
+						Mean val error: 1.3377334571049058, std 0.014450695935959516
+					KMeans 4~7	 
+						Mean val error: 1.3365011940391625, std 0.014141814305431254
+					KMeans 2~6	
+						Mean val error: 1.335310538167179, std 0.012666477491422587
+					KMeans 3~6
+						Mean val error: 1.3364489462153448, std 0.014095656325985629 
+			+ 75 FA decomposition + 50 svd
+				Mean val error: 1.3366383359667535, std 0.015725509569700768
+			+ 50 FA decomposition + 50 svd
+				Mean val error: 1.333967978861879, std 0.015947578275775514
+				LocalAggregates: 75, gain
+					Mean val error: 1.3339468912400496, std 0.016340259110866385
+				Kmeans 2~7
+					Mean val error: 1.3352230473714461, std 0.017754124635851666 

@@ -7,6 +7,7 @@ from scipy.stats import ks_2samp
 from scipy.stats import kurtosis, skew
 from Models import LightGBM
 from sklearn.model_selection import train_test_split
+from sklearn.cluster import KMeans
 
 
 def geo_mean_overflow(iterable):
@@ -242,6 +243,24 @@ class KaggleDataset():
         if verbose:
             print('{} features removed.'.format(len(diff_cols)))
 
+    def keep_only_selected_features(self, dataset='both'):
+        '''Remove all columns except for the hand picked ones'''
+        features = [
+            'f190486d6', 'c47340d97', 'eeb9cd3aa', '66ace2992', 'e176a204a',
+            '491b9ee45', '1db387535', 'c5a231d81', '0572565c2', '024c577b9',
+            '15ace8c9f', '23310aa6f', '9fd594eec', '58e2e02e6', '91f701ba2',
+            'adb64ff71', '2ec5b290f', '703885424', '26fc93eb7', '6619d81fc',
+            '0ff32eb98', '70feb1494', '58e056e12', '1931ccfdd', '1702b5bf0',
+            '58232a6fb', '963a49cdc', 'fc99f9426', '241f0f867', '5c6487af1',
+            '62e59a501', 'f74e8f13d', 'fb49e4212', '190db8488', '324921c7b',
+            'b43a7cfd5', '9306da53f', 'd6bb78916', 'fb0f5dbfe', '6eef030c1'
+        ]
+        if dataset == 'test' or dataset == 'both':
+            self.test_df = self.test_df.filter(items=features)
+        if dataset == 'train' or dataset == 'both':
+            features.append('target')
+            self.train_df = self.train_df.filter(items=features)
+
     def to_sparse(self, dataset='both', verbose=True):
         '''Transform datasets to sparse by removing zeros'''
         if dataset == 'train' or dataset == 'both':
@@ -401,6 +420,43 @@ class KaggleDataset():
                 self.test_agg, prefix='meta')
             self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
 
+    def compute_cluster_features(self, dataset='both',
+                                 iter_cluster=range(2, 11)):
+        '''Compute cluster centers using K-means'''
+        for n_cluster in iter_cluster:
+            if dataset == 'train' or dataset == 'both':
+                features = self.compute_Kmeans('train', n_cluster, fit=True)
+                train_agg = pd.DataFrame(
+                    {'clusterIndex{}'.format(n_cluster): features},
+                    index=self.train_df.index)
+                self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
+            if dataset == 'test' or dataset == 'both':
+                features = self.compute_Kmeans('test', n_cluster, fit=False)
+                test_agg = pd.DataFrame(
+                    {'clusterIndex{}'.format(n_cluster): features},
+                    index=self.test_df.index)
+                self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
+
+    def compute_Kmeans(self, dataset, n_cluster, fit=True, verbose=True):
+        '''Compute K_means algorithm on data'''
+        if dataset == 'train':
+            X = self.train_df.drop('target', axis=1).values
+        elif dataset == 'test':
+            X = self.test_df.values
+
+        if fit:
+            self.clusterizer = KMeans(n_clusters=n_cluster, n_jobs=-2)
+            self.clusterizer.fit(X)
+
+        cluster_index = self.clusterizer.predict(X)
+        # cluster_centers = self.clusterizer.cluster_centers_
+        # cluster_feat = np.array([cluster_centers[x, :] for x in
+        # cluster_index])
+
+        if verbose:
+            print('Clusters inertia: ', self.clusterizer.inertia_)
+
+        return cluster_index
 
 if __name__ == '__main__':
     train_path = './train.csv'

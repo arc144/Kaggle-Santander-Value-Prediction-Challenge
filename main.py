@@ -12,19 +12,21 @@ else:
     test_path = None
 # Load and preprocess Dataset
 dataset = KaggleDataset(train_path, test_path=test_path, aggregates=True)
-dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
-                                              num=75, importance_type='gain')
+dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
+#dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
+#                                              num=75, importance_type='gain')
 
-dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-                                      n_components=75, method='fa',
-                                      comp_stats=False,
-                                      normalize=False)
-
-dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-                                      n_components=50, method='svd',
-                                      comp_stats=False,
-                                      normalize=False)
-
+#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+#                                      n_components=50, method='fa',
+#                                      comp_stats=False,
+#                                      normalize=False)
+#
+#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+#                                      n_components=50, method='svd',
+#                                      comp_stats=False,
+#                                      normalize=False)
+#dataset.compute_cluster_features('both' if LOAD_TEST else 'train', 
+#                                 iter_cluster=range(2, 7))
 
 # dataset.compute_meta_aggregates('both' if LOAD_TEST else 'train')
 # dataset.to_sparse(dataset='both' if LOAD_TEST else 'train')
@@ -35,7 +37,7 @@ dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 #%% Get data for trainning
 NORMALIZE = False
 AGGREGATES = True
-ONLY_AGGREGATES = True
+ONLY_AGGREGATES = False
 # DIM_TO_REDUCE = 50
 # DIM_TO_KEEP = 50
 
