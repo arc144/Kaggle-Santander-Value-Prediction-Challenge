@@ -23,12 +23,13 @@ def generate_bagging_splits(n_size, nfold, bagging_size_ratio=1, random_seed=143
 class LightGBM():
     '''Microsoft LightGBM class wrapper'''
 
-    def __init__(self, num_leaves=40, lr=0.005, bagging_fraction=0.7,
+    def __init__(self, objective='regression', metric='rmse',
+                 num_leaves=40, lr=0.005, bagging_fraction=0.7,
                  feature_fraction=0.6, bagging_frequency=6, device='gpu',
                  **kwargs):
         self.params = {
-            "objective": "regression",
-            "metric": "rmse",
+            "objective": objective,
+            "metric": metric,
             "num_leaves": num_leaves,
             "learning_rate": lr,
             "bagging_fraction": bagging_fraction,
@@ -82,12 +83,15 @@ class LightGBM():
                                     val_X=x_val, val_y=y_val,
                                     ES_rounds=100,
                                     steps=10000)
-            kFold_results.append(
-                np.array(evals_result['valid_1']['rmse']).min())
+            if evals_result:
+                kFold_results.append(
+                    np.array(
+                        evals_result['valid_1'][self.params['metric']]).min())
 
         kFold_results = np.array(kFold_results)
-        print('Mean val error: {}, std {} '.format(
-            kFold_results.mean(), kFold_results.std()))
+        if kFold_results.size > 0:
+            print('Mean val error: {}, std {} '.format(
+                kFold_results.mean(), kFold_results.std()))
 
     def cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
                    random_seed=143, logloss=True,
@@ -115,8 +119,11 @@ class LightGBM():
                                     val_X=x_val, val_y=y_val,
                                     ES_rounds=100,
                                     steps=10000)
-            kFold_results.append(
-                np.array(evals_result['valid_1']['rmse']).min())
+
+            if evals_result:
+                kFold_results.append(
+                    np.array(
+                        evals_result['valid_1'][self.params['metric']]).min())
 
             # Get predictions
             if not i:
@@ -125,8 +132,9 @@ class LightGBM():
                 pred_y += self.predict(test_X, logloss=logloss)
 
         kFold_results = np.array(kFold_results)
-        print('Mean val error: {}, std {} '.format(
-            kFold_results.mean(), kFold_results.std()))
+        if kFold_results.size > 0:
+            print('Mean val error: {}, std {} '.format(
+                kFold_results.mean(), kFold_results.std()))
 
         # Divide pred by the number of folds and return
         return pred_y / nfold

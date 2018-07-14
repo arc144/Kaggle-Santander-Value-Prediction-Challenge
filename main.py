@@ -3,7 +3,7 @@ from Dataset import KaggleDataset
 from Models import LightGBM
 from Submission import create_submission_file
 
-LOAD_TEST = True
+LOAD_TEST = False
 # Define paths and anything related to OS
 train_path = './train.csv'
 if LOAD_TEST:
@@ -13,24 +13,28 @@ else:
 # Load and preprocess Dataset
 dataset = KaggleDataset(train_path, test_path=test_path)
 
-#dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
+dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 
-#dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
+dataset.compute_aggregates_for_selected_features(
+    'both' if LOAD_TEST else 'train')
+#
+# dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
 
-dataset.compute_aggregates_for_selected_features('both' if LOAD_TEST else 'train')
+# dataset.create_feature_as_targets()
 
 # dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
 #                                              num=75, importance_type='gain')
 
-# dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-#                                      n_components=50, method='fa',
-#                                      comp_stats=False,
-#                                      normalize=False)
-#
-# dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-#                                      n_components=50, method='svd',
-#                                      comp_stats=False,
-#                                      normalize=False)
+dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+                                      n_components=50, method='fa',
+                                      comp_stats=False,
+                                      normalize=False)
+
+dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+                                      n_components=50, method='svd',
+                                      comp_stats=False,
+                                      normalize=False)
+
 # dataset.compute_cluster_features('both' if LOAD_TEST else 'train',
 #                                 iter_cluster=range(2, 7))
 
@@ -41,6 +45,7 @@ dataset.compute_aggregates_for_selected_features('both' if LOAD_TEST else 'train
 # dataset.remove_different_distribution_features()
 
 #%% Get data for trainning
+LOGLOSS = True
 NORMALIZE = False
 AGGREGATES = True
 ONLY_AGGREGATES = False
@@ -48,9 +53,9 @@ ONLY_AGGREGATES = False
 # DIM_TO_KEEP = 50
 
 if ONLY_AGGREGATES:
-    X, Y = dataset.get_aggregates_as_data('train')
+    X, Y = dataset.get_aggregates_as_data('train', logloss=LOGLOSS)
 else:
-    X, Y = dataset.get_train_data(normalize=NORMALIZE, logloss=True,
+    X, Y = dataset.get_train_data(normalize=NORMALIZE, logloss=LOGLOSS,
                                   use_aggregates=AGGREGATES,
                                   #                              n_components=DIM_TO_KEEP,
                                   # reduce_dim_nb=0,
@@ -78,6 +83,7 @@ LightGBM_params = dict(boosting='gbdt',
                        use_missing=True, zero_as_missing=False,
                        lambda_l1=1e-1, lambda_l2=1,
                        device='cpu', num_threads=8)
+
 
 if MODEL_TYPE == 'LightGBM':
     model = LightGBM(**LightGBM_params)

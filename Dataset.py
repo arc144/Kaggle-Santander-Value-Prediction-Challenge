@@ -406,7 +406,7 @@ class KaggleDataset():
         if dataset == 'train' or dataset == 'both':
             df = self.keep_only_selected_features('train', return_only=True)
             train_agg = compute_row_aggregates(
-                df, prefix='hand_picked')
+                df.drop('target', axis=1), prefix='hand_picked')
             # Add to aggregates
             self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
 
@@ -490,6 +490,14 @@ class KaggleDataset():
             print('Clusters inertia: ', self.clusterizer.inertia_)
 
         return cluster_index
+
+    def create_feature_as_targets(self):
+        '''Create new target using arg of the feat closer to target'''
+        for index, row in self.train_df.iterrows():
+            target = row.pop('target')
+            dists = abs(row.values - target)
+            self.train_df.at[index, 'target'] = np.argmin(dists)
+
 
 if __name__ == '__main__':
     train_path = './train.csv'

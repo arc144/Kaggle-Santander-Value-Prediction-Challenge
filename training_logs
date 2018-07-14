@@ -136,6 +136,9 @@ LightGBM num_leaves=53, lr=0.005, bagging_fraction=0.67, feature_fraction=0.35, 
 
 		Handpicked Aggregates
 			raw features
-				Mean val error: 1.1480101646692935, std 0.02328460431355448
+				Mean val error: 1.3847763794789552, std 0.020711290805436603 
+				Global Aggregates
+					Mean val error: 1.3410909357356957, std 0.015300347808043454
 			handpicked features
-				Mean val error: 1.124924151938144, std 0.021836093726986746
+				Mean val error: 1.395187481712994, std 0.02124829847293795
+
