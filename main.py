@@ -3,7 +3,7 @@ from Dataset import KaggleDataset
 from Models import LightGBM
 from Submission import create_submission_file
 
-LOAD_TEST = False
+LOAD_TEST = True
 # Define paths and anything related to OS
 train_path = './train.csv'
 if LOAD_TEST:
@@ -15,8 +15,8 @@ dataset = KaggleDataset(train_path, test_path=test_path)
 
 dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 
-dataset.compute_aggregates_for_selected_features(
-    'both' if LOAD_TEST else 'train')
+#dataset.compute_aggregates_for_selected_features(
+#    'both' if LOAD_TEST else 'train')
 #
 # dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
 
