@@ -4,7 +4,7 @@ from sklearn.preprocessing import MaxAbsScaler
 from sklearn.decomposition import TruncatedSVD, SparsePCA, FactorAnalysis
 from sklearn.random_projection import SparseRandomProjection
 from scipy.stats import ks_2samp
-from scipy.stats import kurtosis, skew
+from scipy.stats import kurtosis, skew, mode
 from Models import LightGBM
 from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
@@ -47,6 +47,11 @@ def compute_row_aggregates(df, prefix=''):
             np.percentile(non_zero_values, q=75)
         agg_df.at[index, '{}_non_zero_gmean'.format(prefix)] = \
             geo_mean_overflow(non_zero_values)
+
+        mode_ = mode(np.around(non_zero_values, decimals=4))
+        agg_df.at[index, '{}_non_zero_mode'.format(prefix)] = mode_[
+            0] if mode_[1] > 1 else 0
+        # agg_df.at[index, '{}_non_zero_mode_count'.format(prefix)] = mode_[1]
         # agg_df.at[index, '{}_non_zero_skewness'.format(prefix)] = \
         #     skew(non_zero_values)
         # agg_df.at[index, '{}_non_zero_kurtosis'.format(prefix)] = \

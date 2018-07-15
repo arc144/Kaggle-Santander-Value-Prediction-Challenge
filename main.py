@@ -3,7 +3,7 @@ from Dataset import KaggleDataset
 from Models import LightGBM
 from Submission import create_submission_file
 
-LOAD_TEST = True
+LOAD_TEST = False
 # Define paths and anything related to OS
 train_path = './train.csv'
 if LOAD_TEST:
@@ -25,15 +25,15 @@ dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 # dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
 #                                              num=75, importance_type='gain')
 
-dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-                                      n_components=50, method='fa',
-                                      comp_stats=False,
-                                      normalize=False)
-
-dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-                                      n_components=50, method='svd',
-                                      comp_stats=False,
-                                      normalize=False)
+#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+#                                      n_components=50, method='fa',
+#                                      comp_stats=False,
+#                                      normalize=False)
+#
+#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+#                                      n_components=50, method='svd',
+#                                      comp_stats=False,
+#                                      normalize=False)
 
 # dataset.compute_cluster_features('both' if LOAD_TEST else 'train',
 #                                 iter_cluster=range(2, 7))
@@ -48,7 +48,7 @@ dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 LOGLOSS = True
 NORMALIZE = False
 AGGREGATES = True
-ONLY_AGGREGATES = False
+ONLY_AGGREGATES = True
 # DIM_TO_REDUCE = 50
 # DIM_TO_KEEP = 50
 
