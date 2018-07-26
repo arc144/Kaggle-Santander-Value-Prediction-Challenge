@@ -3,6 +3,13 @@ import lightgbm as lgb
 # import xgboost as xgb
 import catboost as cb
 from sklearn.model_selection import KFold, GridSearchCV
+import os
+os.environ['KERAS_BACKEND'] = 'tensorflow'
+from keras.layers import LSTM, Dense
+from keras.models import Sequential
+from keras.callbacks import EarlyStopping
+from keras.optimizers import Adam
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 def generate_bagging_splits(n_size, nfold, bagging_size_ratio=1, random_seed=143):
@@ -18,6 +25,18 @@ def generate_bagging_splits(n_size, nfold, bagging_size_ratio=1, random_seed=143
         splits.append((t_index, v_index))
 
     return splits
+
+
+def assert_time_series_dims(data):
+    '''Assert TS dims are of the format (rows, time-steps, features)'''
+    if len(data.shape) == 2:
+        data = np.expand_dims(data, axis=-1)
+    elif len(data.shape) == 3:
+        pass
+    else:
+        raise(('Invalid data dims, expected' +
+               '2 or 3, but got {}'.format(data.shape)))
+    return data
 
 
 class LightGBM():
@@ -176,18 +195,20 @@ class LightGBM():
     def optmize_hyperparams(self, param_grid, X, Y, cv=4, verbose=1):
         '''Use GridSearchCV to optimize models params'''
         # Convert default params to  SkLearn
-        self.params['min_split_gain'] = self.params.get('min_gain_to_split', 0)
-        # self.params['subsample_for_bin'] = self.params['max_bin']
-        self.params['subsample'] = self.params['bagging_fraction']
-        self.params['subsample_freq'] = self.params['bagging_freq']
-        self.params['colsample_bytree'] = self.params['feature_fraction']
-        self.params['min_child_weight'] = self.params.get(
-            'min_sum_hessian_in_leaf', 1e-3)
-        self.params['reg_lambda'] = self.params['lambda_l2']
-        self.params['reg_alpha'] = self.params['lambda_l1']
-        self.params['min_child_samples'] = self.params['min_data_in_leaf']
-
-        gsearch1 = GridSearchCV(estimator=lgb.LGBMModel(**self.params),
+        # self.params['min_split_gain'] = self.params.get('min_gain_to_split', 0)
+        # # self.params['subsample_for_bin'] = self.params['max_bin']
+        # self.params['subsample'] = self.params['bagging_fraction']
+        # self.params['subsample_freq'] = self.params['bagging_freq']
+        # self.params['colsample_bytree'] = self.params['feature_fraction']
+        # self.params['min_child_weight'] = self.params.get(
+        #     'min_sum_hessian_in_leaf', 1e-3)
+        # self.params['reg_lambda'] = self.params['lambda_l2']
+        # self.params['reg_alpha'] = self.params['lambda_l1']
+        # self.params['min_child_samples'] = self.params['min_data_in_leaf']
+        params = self.params
+        params['learning_rate'] = 0.05
+        params['n_estimators'] = 1000
+        gsearch1 = GridSearchCV(estimator=lgb.LGBMModel(**params),
                                 param_grid=param_grid,
                                 scoring='neg_mean_squared_error',
                                 n_jobs=1,
@@ -202,3 +223,165 @@ class LightGBM():
                 print('Scores are: ', scores)
             print('Best params: ', best_params)
             print('Best score: ', best_score)
+
+
+class RNN_LSTM():
+    '''LSTM class for time-series'''
+
+    def __init__(self, units, layers, in_shape, out_shape,
+                 lr=0.001, lr_decay=0):
+        self.units = units
+        self.layers = layers
+        self.in_shape = in_shape
+        self.out_shape = out_shape
+        self.lr = lr
+        self.lr_decay = lr_decay
+
+        self.scaler = MinMaxScaler()
+
+    def create_model(self):
+        '''Create NN graph'''
+        self.model = Sequential()
+        for i in range(self.layers):
+            if not i:
+                self.model.add(
+                    LSTM(self.units,
+                         input_shape=self.in_shape,
+                         return_sequences=False if self.layers == 1 else True))
+            elif i == self.layers - 1:
+                self.model.add(LSTM(self.units,
+                                    return_sequences=False))
+            else:
+                self.model.add(LSTM(self.units,
+                                    return_sequences=True))
+        self.model.add(Dense(self.out_shape))
+        optimizer = Adam(lr=self.lr, decay=self.lr_decay)
+        self.model.compile(optimizer=optimizer, loss='mean_squared_error')
+
+    def fit(self, train_X, train_y, val_X, val_y, epochs=5, mb_size=10,
+            scale_data=True, early_stop=True):
+        '''Train LSTM model'''
+        self.scale_data = scale_data
+        if scale_data:
+            train_X = self.scaler.fit_transform(train_X)
+            val_X = self.scaler.transform(val_X)
+        # Assert and correct data dims
+        train_X = assert_time_series_dims(train_X)
+        val_X = assert_time_series_dims(val_X)
+        # Train model
+        if early_stop:
+            callbacks = [EarlyStopping(patience=1)]
+        else:
+            callbacks = None
+
+        self.create_model()
+        history = self.model.fit(train_X, train_y,
+                                 validation_data=(val_X, val_y),
+                                 epochs=epochs, batch_size=mb_size,
+                                 callbacks=callbacks)
+        return history
+
+    def predict(self, test_X, logloss=True):
+        '''Predict using a fitted model'''
+        if self.scale_data:
+            test_X = self.scaler.transform(test_X)
+        # Assert and correct data dims
+        test_X = assert_time_series_dims(test_X)
+        # Predict
+        pred_y = self.model.predict(test_X)
+
+        if logloss:
+            pred_y = np.expm1(pred_y)
+        return pred_y
+
+    def fit_predict(self, train_X, train_y, val_X, val_y,
+                    test_X, pochs=100, mb_size=10,
+                    scale_data=True, early_stop=True, logloss=True):
+        history = self.fit(train_X, train_y, val_X, val_y,
+                           epochs=100, mb_size=10,
+                           scale_data=True,
+                           early_stop=early_stop)
+        pred_y = self.predict(test_X, logloss)
+        return history, pred_y
+
+    def cv(self, X, Y, nfold=5,  epochs=5, mb_size=10, random_seed=143,
+           scale_data=True, early_stop=True,
+            bootstrap=False, bagging_size_ratio=1):
+        # Train LGB model using CV
+        if bootstrap:
+            splits = generate_bagging_splits(
+                X.shape[0], nfold,
+                bagging_size_ratio=bagging_size_ratio,
+                random_seed=random_seed)
+
+        else:
+            kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
+            splits = kf.split(X, y=Y)
+
+        kFold_results = []
+        for train_index, val_index in splits:
+            x_train = X[train_index]
+            y_train = Y[train_index]
+            x_val = X[val_index]
+            y_val = Y[val_index]
+
+            history = self.fit(x_train, y_train, x_val, y_val,
+                               epochs=epochs, mb_size=mb_size,
+                               scale_data=scale_data,
+                               early_stop=early_stop)
+            if history:
+                kFold_results.append(
+                    np.array(
+                        history.history).min())
+
+        kFold_results = np.array(kFold_results)
+        if kFold_results.size > 0:
+            print('Mean val error: {}, std {} '.format(
+                kFold_results.mean(), kFold_results.std()))
+
+    def cv_predict(self, X, Y, test_X, nfold=5,  epochs=5, mb_size=10,
+                   random_seed=143, logloss=True,
+                   scale_data=True, early_stop=True,
+                   bootstrap=False, bagging_size_ratio=1):
+        '''Fit model using CV and predict test using the average
+         of all folds'''
+        if bootstrap:
+            splits = generate_bagging_splits(
+                X.shape[0], nfold,
+                bagging_size_ratio=bagging_size_ratio,
+                random_seed=random_seed)
+
+        else:
+            kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
+            splits = kf.split(X, y=Y)
+
+        kFold_results = []
+        for i, (train_index, val_index) in enumerate(splits):
+            x_train = X[train_index]
+            y_train = Y[train_index]
+            x_val = X[val_index]
+            y_val = Y[val_index]
+
+            history = self.fit(x_train, y_train, x_val, y_val,
+                               epochs=epochs, mb_size=mb_size,
+                               scale_data=scale_data,
+                               early_stop=early_stop)
+
+            # if history:
+            #     kFold_results.append(
+            #         np.array(
+            #             history.history).min())
+
+            # Get predictions
+            if not i:
+                pred_y = self.predict(test_X, logloss=logloss)
+            else:
+                pred_y += self.predict(test_X, logloss=logloss)
+
+        # kFold_results = np.array(kFold_results)
+        # if kFold_results.size > 0:
+        #     print('Mean val error: {}, std {} '.format(
+        #         kFold_results.mean(), kFold_results.std()))
+
+        # Divide pred by the number of folds and return
+        return pred_y / nfold

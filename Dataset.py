@@ -8,6 +8,8 @@ from scipy.stats import kurtosis, skew, mode
 from Models import LightGBM
 from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
+from sklearn.metrics import mean_squared_error
+from math import sqrt
 
 
 def geo_mean_overflow(iterable):
@@ -106,6 +108,7 @@ class KaggleDataset():
 
         # Load datasets
         self.train_df = load_df_from_path(self.train_path)
+        # self.train_df[self.train_df == 1563411.76] = 0
         if test_path is not None:
             self.test_df = load_df_from_path(self.test_path)
         else:
@@ -120,7 +123,8 @@ class KaggleDataset():
         if test_path is not None:
             self.test_agg = pd.DataFrame(index=self.test_df.index)
 
-    def get_train_data(self, logloss=True, normalize=False, n_components=None,
+    def get_train_data(self, logloss=True, round_targets=False,
+                       normalize=False, n_components=None,
                        reduce_dim_nb=0, use_aggregates=True,
                        reduce_dim_method='svd'):
         '''Convert train_df to train array'''
@@ -135,6 +139,9 @@ class KaggleDataset():
             y = np.log1p(self.train_df["target"].values)
         else:
             y = self.train_df["target"].values
+        if round_targets:
+            y = np.around(y,
+                          decimals=round_targets)
 
         # Preprocess if required
         if normalize:
@@ -172,7 +179,8 @@ class KaggleDataset():
 
         return x
 
-    def get_aggregates_as_data(self, dataset, logloss=True):
+    def get_aggregates_as_data(self, dataset, logloss=True,
+                               round_targets=False):
         '''Get aggregates as np data'''
         if dataset == 'train':
             x = self.train_agg.values
@@ -180,6 +188,9 @@ class KaggleDataset():
                 y = np.log1p(self.train_df["target"].values)
             else:
                 y = self.train_df["target"].values
+            if round_targets:
+                y = np.around(y,
+                              decimals=round_targets)
             return x, y
 
         elif dataset == 'test':
@@ -503,6 +514,74 @@ class KaggleDataset():
             dists = abs(row.values - target)
             self.train_df.at[index, 'target'] = np.argmin(dists)
 
+    def get_gibas_pred(self, dataset='train'):
+        # Need more features!!! Note that if we use
+        if dataset == 'train':
+            data = self.train_df
+        elif dataset == 'test':
+            data = self.test_df
+
+        features = ['f190486d6', '58e2e02e6', 'eeb9cd3aa', '9fd594eec',
+                    '6eef030c1', '15ace8c9f', 'fb0f5dbfe', '58e056e12',
+                    '20aa07010', '024c577b9', 'd6bb78916', 'b43a7cfd5',
+                    '58232a6fb', '1702b5bf0', '324921c7b', '62e59a501',
+                    '2ec5b290f', '241f0f867', 'fb49e4212', '66ace2992',
+                    'f74e8f13d', '5c6487af1', '963a49cdc', '26fc93eb7',
+                    '1931ccfdd', '703885424', '70feb1494', '491b9ee45',
+                    '23310aa6f', 'e176a204a', '6619d81fc', '1db387535']
+        d1 = data[features[:-2]
+                  ].apply(tuple, axis=1).to_frame().rename(columns={0: 'key'})
+        d2 = data[features[2:]].apply(
+            tuple, axis=1).to_frame().rename(columns={0: 'key'})
+        d2['pred'] = data[features[0]]
+        d2 = d2[d2['pred'] != 0]  # Keep?
+        d3 = d2[~d2.duplicated(['key'], keep='first')]  # Need more features!
+        d = d1.merge(d3, how='left', on='key')
+
+        pred = d.pred.fillna(0)
+        log_pred = np.log1p(d.pred).fillna(0)
+        have_data = log_pred != 0
+
+        if dataset == 'train':
+            error = sqrt(mean_squared_error(
+                np.log1p(self.train_df.reset_index().target[have_data]),
+                log_pred[have_data]))
+            print(
+                f'Score={error} on {have_data.sum()} out of {self.train_df.shape[0]} training samples')
+        elif dataset == 'test':
+            print(f'Have predictions for {have_data.sum()} out of {self.test_df.shape[0]} test samples')
+
+        return pred
+
+    def get_data_as_time_series(self, dataset='train',
+                                logloss=True, round_targets=False):
+        '''Get data as time-series using selected features'''
+        cols = ['f190486d6', '58e2e02e6', 'eeb9cd3aa', '9fd594eec',
+                '6eef030c1', '15ace8c9f', 'fb0f5dbfe', '58e056e12',
+                '20aa07010', '024c577b9', 'd6bb78916', 'b43a7cfd5',
+                '58232a6fb', '1702b5bf0', '324921c7b', '62e59a501',
+                '2ec5b290f', '241f0f867', 'fb49e4212', '66ace2992',
+                'f74e8f13d', '5c6487af1', '963a49cdc', '26fc93eb7',
+                '1931ccfdd', '703885424', '70feb1494', '491b9ee45',
+                '23310aa6f', 'e176a204a', '6619d81fc', '1db387535',
+                'fc99f9426', '91f701ba2', '0572565c2', '190db8488',
+                'adb64ff71', 'c47340d97', 'c5a231d81', '0ff32eb98'
+                ]
+
+        if dataset == 'train':
+            x = self.train_df.drop(["target"], axis=1)[cols].values
+            if logloss:
+                y = np.log1p(self.train_df["target"].values)
+            else:
+                y = self.train_df["target"].values
+            if round_targets:
+                y = np.around(y,
+                              decimals=round_targets)
+            return x, y
+
+        elif dataset == 'test':
+            x = self.test_df[cols].values
+            return x
 
 if __name__ == '__main__':
     train_path = './train.csv'
