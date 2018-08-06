@@ -64,8 +64,13 @@ class LightGBM():
         for key, value in kwargs.items():
             self.params[key] = value
 
+        if self.params['metric'] in ['auc', 'binary_logloss', 'multi_logloss']:
+            self.get_best_metric = max
+        else:
+            self.get_best_metric = min
+
     def fit(self, train_X, train_y, val_X, val_y, ES_rounds=100, steps=5000,
-            verbose=150):
+            verbose=150, oof_pred=False):
         # Train LGB model
         lgtrain = lgb.Dataset(train_X, label=train_y)
         lgval = lgb.Dataset(val_X, label=val_y)
@@ -76,10 +81,14 @@ class LightGBM():
                                early_stopping_rounds=ES_rounds,
                                verbose_eval=verbose,
                                evals_result=evals_result)
-        return evals_result
+        if oof_pred:
+            pred = self.predict(val_X, logloss=False)
+        else:
+            pred = None
+        return evals_result, pred
 
     def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, random_seed=143,
-           bootstrap=False, bagging_size_ratio=1):
+           bootstrap=False, bagging_size_ratio=1, oof_pred=False):
         # Train LGB model using CV
         if bootstrap:
             splits = generate_bagging_splits(
@@ -92,29 +101,35 @@ class LightGBM():
             splits = kf.split(X, y=Y)
 
         kFold_results = []
+        oof_results = []
         for train_index, val_index in splits:
             x_train = X[train_index]
             y_train = Y[train_index]
             x_val = X[val_index]
             y_val = Y[val_index]
 
-            evals_result = self.fit(train_X=x_train, train_y=y_train,
-                                    val_X=x_val, val_y=y_val,
-                                    ES_rounds=100,
-                                    steps=10000)
+            evals_result, oof_prediction = self.fit(train_X=x_train, train_y=y_train,
+                                                    val_X=x_val, val_y=y_val,
+                                                    ES_rounds=100,
+                                                    steps=10000,
+                                                    oof_pred=oof_pred)
+            oof_results.extend(oof_prediction)
             if evals_result:
                 kFold_results.append(
                     np.array(
-                        evals_result['valid_1'][self.params['metric']]).min())
+                        self.get_best_metric(
+                            evals_result['valid_1'][self.params['metric']])))
 
         kFold_results = np.array(kFold_results)
         if kFold_results.size > 0:
             print('Mean val error: {}, std {} '.format(
                 kFold_results.mean(), kFold_results.std()))
+        if oof_pred:
+            return np.array(oof_results)
 
     def cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
                    random_seed=143, logloss=True,
-                   bootstrap=False, bagging_size_ratio=1):
+                   bootstrap=False, bagging_size_ratio=1, oof_pred=False):
         '''Fit model using CV and predict test using the average
          of all folds'''
         if bootstrap:
@@ -128,21 +143,25 @@ class LightGBM():
             splits = kf.split(X, y=Y)
 
         kFold_results = []
+        oof_results = []
         for i, (train_index, val_index) in enumerate(splits):
             x_train = X[train_index]
             y_train = Y[train_index]
             x_val = X[val_index]
             y_val = Y[val_index]
 
-            evals_result = self.fit(train_X=x_train, train_y=y_train,
-                                    val_X=x_val, val_y=y_val,
-                                    ES_rounds=100,
-                                    steps=10000)
+            evals_result, oof_prediction = self.fit(train_X=x_train, train_y=y_train,
+                                                    val_X=x_val, val_y=y_val,
+                                                    ES_rounds=100,
+                                                    steps=10000,
+                                                    oof_pred=oof_pred)
+            oof_results.extend(oof_prediction)
 
             if evals_result:
                 kFold_results.append(
                     np.array(
-                        evals_result['valid_1'][self.params['metric']]).min())
+                        self.get_best_metric(
+                            evals_result['valid_1'][self.params['metric']])))
 
             # Get predictions
             if not i:
@@ -156,6 +175,8 @@ class LightGBM():
                 kFold_results.mean(), kFold_results.std()))
 
         # Divide pred by the number of folds and return
+        if oof_pred:
+            return pred_y / nfold, np.array(oof_results)
         return pred_y / nfold
 
     def multi_seed_cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
@@ -194,17 +215,6 @@ class LightGBM():
 
     def optmize_hyperparams(self, param_grid, X, Y, cv=4, verbose=1):
         '''Use GridSearchCV to optimize models params'''
-        # Convert default params to  SkLearn
-        # self.params['min_split_gain'] = self.params.get('min_gain_to_split', 0)
-        # # self.params['subsample_for_bin'] = self.params['max_bin']
-        # self.params['subsample'] = self.params['bagging_fraction']
-        # self.params['subsample_freq'] = self.params['bagging_freq']
-        # self.params['colsample_bytree'] = self.params['feature_fraction']
-        # self.params['min_child_weight'] = self.params.get(
-        #     'min_sum_hessian_in_leaf', 1e-3)
-        # self.params['reg_lambda'] = self.params['lambda_l2']
-        # self.params['reg_alpha'] = self.params['lambda_l1']
-        # self.params['min_child_samples'] = self.params['min_data_in_leaf']
         params = self.params
         params['learning_rate'] = 0.05
         params['n_estimators'] = 1000

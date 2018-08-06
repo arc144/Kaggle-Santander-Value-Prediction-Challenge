@@ -6,7 +6,7 @@ from sklearn.random_projection import SparseRandomProjection
 from scipy.stats import ks_2samp
 from scipy.stats import kurtosis, skew, mode
 from Models import LightGBM
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from sklearn.cluster import KMeans
 from sklearn.metrics import mean_squared_error
 from math import sqrt
@@ -582,6 +582,51 @@ class KaggleDataset():
         elif dataset == 'test':
             x = self.test_df[cols].values
             return x
+
+    def add_IsTargetAvaliable_as_feature(self, params=None, test=True,
+                                         verbose=True, random_seed=43):
+        '''Use a LightGBM model to predict if the target is one of the cols in the row'''
+        if not params:
+            params = {
+                'objective': 'binary',
+                'num_leaves': 20,
+                'min_data_in_leaf': 6,
+                'bagging_fraction': 1, 'bagging_freq': 3,
+                'feature_fraction': 0.6,
+                'min_split_gain': np.power(10, -2.5988),
+                'reg_alpha': np.power(10, -2.2887),
+                'reg_lambda': np.power(10, 1.7570),
+                'min_child_weight': np.power(10, -0.1477),
+                'verbose': -1,
+                'seed': 3,
+                'boosting_type': 'gbdt',
+                'max_depth': -1,
+                'learning_rate': 0.05,  # 0.05
+                'metric': 'auc',
+                'device': 'cpu',
+                'num_threads': 8
+            }
+        x, target = self.get_train_data(use_aggregates=True, logloss=False)
+        y = np.array([target[i] in x[i]
+                      for i in range(x.shape[0])]).astype(np.int)
+
+        model = LightGBM(**params)
+        if test:
+            x_test = self.get_test_data()
+            test_feat, train_feat = model.cv_predict(x, y, x_test,
+                                                     random_seed=random_seed,
+                                                     logloss=False,
+                                                     oof_pred=True)
+        else:
+            train_feat = model.cv(x, y,
+                                  random_seed=random_seed,
+                                  oof_pred=True)
+
+        if test:
+            return test_feat, train_feat
+        else:
+            return train_feat
+
 
 if __name__ == '__main__':
     train_path = './train.csv'
