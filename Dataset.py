@@ -584,7 +584,8 @@ class KaggleDataset():
             return x
 
     def add_IsTargetAvaliable_as_feature(self, params=None, test=True,
-                                         verbose=True, random_seed=43):
+                                         verbose=True, random_seed=43,
+                                         threshold='soft'):
         '''Use a LightGBM model to predict if the target is one of the cols in the row'''
         if not params:
             params = {
@@ -592,17 +593,17 @@ class KaggleDataset():
                 'num_leaves': 20,
                 'min_data_in_leaf': 6,
                 'bagging_fraction': 1, 'bagging_freq': 3,
-                'feature_fraction': 0.6,
-                'min_split_gain': np.power(10, -2.5988),
-                'reg_alpha': np.power(10, -2.2887),
-                'reg_lambda': np.power(10, 1.7570),
+                'feature_fraction': 0.65,
+                'min_split_gain': 0.0001,
+                'lambda_l1': np.power(10, -2.2887),
+                'lambda_l2': np.power(10, 1.7570),
                 'min_child_weight': np.power(10, -0.1477),
                 'verbose': -1,
                 'seed': 3,
                 'boosting_type': 'gbdt',
                 'max_depth': -1,
                 'learning_rate': 0.05,  # 0.05
-                'metric': 'auc',
+                'metric': 'binary_logloss',
                 'device': 'cpu',
                 'num_threads': 8
             }
@@ -613,19 +614,33 @@ class KaggleDataset():
         model = LightGBM(**params)
         if test:
             x_test = self.get_test_data()
-            test_feat, train_feat = model.cv_predict(x, y, x_test,
-                                                     random_seed=random_seed,
-                                                     logloss=False,
-                                                     oof_pred=True)
+            test_feat = model.cv_predict(x, y, x_test,
+                                         random_seed=random_seed,
+                                         logloss=False,
+                                         oof_pred=False)
         else:
-            train_feat = model.cv(x, y,
-                                  random_seed=random_seed,
-                                  oof_pred=True)
+            model.cv(x, y,
+                     random_seed=random_seed,
+                     oof_pred=False)
+
+        # Add to aggregates
+        train_agg = pd.DataFrame(dict(is_label=y), index=self.train_df.index)
+        self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
 
         if test:
-            return test_feat, train_feat
-        else:
-            return train_feat
+            if threshold == 'hard':
+                thresh = 0.5
+            elif threshold == 'soft':
+                thresh = 1572 / (2887 + 1572)
+            else:
+                raise (('Invalid threshold param, must be',
+                        'either "hard" or "soft"'))
+
+            test_feat[test_feat <= thresh] = 0
+            test_feat[test_feat > thresh] = 1
+            test_agg = pd.DataFrame(
+                dict(is_label=test_feat), index=self.test_df.index)
+            self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
 
 
 if __name__ == '__main__':

@@ -44,8 +44,12 @@ dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 # dataset.remove_duplicated_features()
 # dataset.remove_different_distribution_features()
 
+dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
+                                         threshold='soft',
+                                         verbose=True)
+
 # %% Get data for trainning
-TIME_SERIES = True
+TIME_SERIES = False
 LOGLOSS = True
 NORMALIZE = False
 AGGREGATES = True
@@ -81,7 +85,7 @@ RANDOM_SEED = 143
 NFOLD = 3
 BAGGING = True
 # Train model on KFold
-MODEL_TYPE = 'LSTM'     # Either LightGBM, XGBoost, CatBoost or LSTM
+MODEL_TYPE = 'LightGBM'     # Either LightGBM, XGBoost, CatBoost or LSTM
 
 
 if MODEL_TYPE == 'LightGBM':
@@ -129,7 +133,7 @@ if LOAD_TEST:
     create_submission_file(dataset.test_df.index, pred)
 
 # %% Optimize Hyper params
-OPTIMIZE = True
+OPTIMIZE = False
 if OPTIMIZE:
     param_grid = {
         #        'min_split_gain'

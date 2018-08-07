@@ -113,7 +113,8 @@ class LightGBM():
                                                     ES_rounds=100,
                                                     steps=10000,
                                                     oof_pred=oof_pred)
-            oof_results.extend(oof_prediction)
+            if oof_pred:
+                oof_results.extend(oof_prediction)
             if evals_result:
                 kFold_results.append(
                     np.array(
@@ -155,8 +156,8 @@ class LightGBM():
                                                     ES_rounds=100,
                                                     steps=10000,
                                                     oof_pred=oof_pred)
-            oof_results.extend(oof_prediction)
-
+            if oof_pred:
+                oof_results.extend(oof_prediction)
             if evals_result:
                 kFold_results.append(
                     np.array(
@@ -179,7 +180,8 @@ class LightGBM():
             return pred_y / nfold, np.array(oof_results)
         return pred_y / nfold
 
-    def multi_seed_cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
+    def multi_seed_cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100,
+                              steps=5000,
                               random_seed=[143, 135, 138], logloss=True,
                               bootstrap=False, bagging_size_ratio=1):
         '''Perform cv_predict for multiple seeds and avg them'''
