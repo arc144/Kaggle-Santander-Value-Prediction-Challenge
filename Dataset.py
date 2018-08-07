@@ -603,7 +603,7 @@ class KaggleDataset():
                 'boosting_type': 'gbdt',
                 'max_depth': -1,
                 'learning_rate': 0.05,  # 0.05
-                'metric': 'binary_logloss',
+                'metric': 'rmse',
                 'device': 'cpu',
                 'num_threads': 8
             }

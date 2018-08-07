@@ -215,14 +215,16 @@ class LightGBM():
         pred_y = self.predict(test_X, logloss)
         return evals_result, pred_y
 
-    def optmize_hyperparams(self, param_grid, X, Y, cv=4, verbose=1):
+    def optmize_hyperparams(self, param_grid, X, Y,
+                            cv=4, scoring='neg_mean_squared_error',
+                            verbose=1):
         '''Use GridSearchCV to optimize models params'''
         params = self.params
         params['learning_rate'] = 0.05
         params['n_estimators'] = 1000
         gsearch1 = GridSearchCV(estimator=lgb.LGBMModel(**params),
                                 param_grid=param_grid,
-                                scoring='neg_mean_squared_error',
+                                scoring=scoring,
                                 n_jobs=1,
                                 iid=False,
                                 cv=4)

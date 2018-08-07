@@ -3,7 +3,7 @@ from Dataset import KaggleDataset
 from Models import LightGBM, RNN_LSTM
 from Submission import create_submission_file
 
-LOAD_TEST = True
+LOAD_TEST = False
 # Define paths and anything related to OS
 train_path = './train.csv'
 if LOAD_TEST:
@@ -44,9 +44,9 @@ dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 # dataset.remove_duplicated_features()
 # dataset.remove_different_distribution_features()
 
-dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
-                                         threshold='soft',
-                                         verbose=True)
+#dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
+#                                         threshold='soft',
+#                                         verbose=True)
 
 # %% Get data for trainning
 TIME_SERIES = False
@@ -133,13 +133,18 @@ if LOAD_TEST:
     create_submission_file(dataset.test_df.index, pred)
 
 # %% Optimize Hyper params
-OPTIMIZE = False
+OPTIMIZE = True
 if OPTIMIZE:
     param_grid = {
-        #        'min_split_gain'
-        #        'bagging_fraction': np.arange(0.65, 0.75, 0.02),
-        'max_bin': range(100, 300, 50),
-        #        'feature_fraction': np.arange(0.15, 0.25, 0.02),
+#            'num_leaves': np.arange(8, 10, 1), 
+#            'min_data_in_leaf': np.arange(5, 7, 1),
+#            'max_depth': np.arange(1, 10, 2),
+#                'bagging_fraction': np.arange(0.5, 0.9, 0.1),
+             'bagging_freq': np.arange(1, 5, 1), 
+#             'lambda_l1': [np.power(10, x) for x in np.arange(0.9, 1.2, 0.1).astype(float)],
+#             'lambda_l2': [np.power(10, x) for x in np.arange(0.9, 1.2, 0.1).astype(float)],
+#        'max_bin': range(100, 300, 50),
+#                'feature_fraction': np.arange(0.6, 0.65, 0.025),
         #        'min_child_weight'
         #        'reg_lambda'
         #        'reg_alpha'
