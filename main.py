@@ -13,17 +13,24 @@ else:
 # Load and preprocess Dataset
 dataset = KaggleDataset(train_path, test_path=test_path)
 
-dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
+#dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 
-# dataset.compute_aggregates_for_selected_features(
-#    'both' if LOAD_TEST else 'train')
+#dataset.remove_fillers_from_data('both' if LOAD_TEST else 'train', 20)
+
+dataset.compute_aggregates_for_selected_features(
+    'both' if LOAD_TEST else 'train')
 #
-# dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
+#dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
 
 # dataset.create_feature_as_targets()
 
 # dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
 #                                              num=75, importance_type='gain')
+
+dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
+                                         threshold='soft',
+                                         verbose=True,
+                                         calc_on_selected_feat=True)
 
 dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
                                       n_components=50, method='fa',
@@ -43,10 +50,6 @@ dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 # dataset.remove_constant_features()
 # dataset.remove_duplicated_features()
 # dataset.remove_different_distribution_features()
-
-#dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
-#                                         threshold='soft',
-#                                         verbose=True)
 
 # %% Get data for trainning
 TIME_SERIES = False
@@ -99,7 +102,8 @@ if MODEL_TYPE == 'LightGBM':
                            use_missing=True, zero_as_missing=False,
                            lambda_l1=1e-1, lambda_l2=1,
                            device='cpu', num_threads=8)
-    
+
+
     fit_params = dict(nfold=NFOLD,  ES_rounds=100,
                       steps=50000, random_seed=RANDOM_SEED,
                       bootstrap=BAGGING, bagging_size_ratio=1)
@@ -133,14 +137,14 @@ if LOAD_TEST:
     create_submission_file(dataset.test_df.index, pred)
 
 # %% Optimize Hyper params
-OPTIMIZE = True
+OPTIMIZE = False
 if OPTIMIZE:
     param_grid = {
 #            'num_leaves': np.arange(8, 10, 1), 
 #            'min_data_in_leaf': np.arange(5, 7, 1),
 #            'max_depth': np.arange(1, 10, 2),
-#                'bagging_fraction': np.arange(0.5, 0.9, 0.1),
-             'bagging_freq': np.arange(1, 5, 1), 
+                'bagging_fraction': np.arange(0.78, 0.82, 0.01),
+#             'bagging_freq': np.arange(1, 5, 1), 
 #             'lambda_l1': [np.power(10, x) for x in np.arange(0.9, 1.2, 0.1).astype(float)],
 #             'lambda_l2': [np.power(10, x) for x in np.arange(0.9, 1.2, 0.1).astype(float)],
 #        'max_bin': range(100, 300, 50),

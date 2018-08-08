@@ -142,9 +142,21 @@ LightGBM num_leaves=53, lr=0.005, bagging_fraction=0.67, feature_fraction=0.35, 
 					Mean val error: 1.3270024516717902, std 0.015266966809476921
 				isLabel feature, soft thresh, binary_logloss
 					Mean val error: 1.326965648359024, std 0.015555453685474289
-		isLabel feature, soft thresh, rmse
-			Mean val error: 1.335448021767931, std 0.013085767700726808 LB 1.38
-
+			isLabel feature, soft thresh, rmse
+				Mean val error: 1.335448021767931, std 0.013085767700726808 LB 1.38
+			isLabel feature, soft thresh, rmse
+				+ 50 FA decomposition + 50 svd only for last LGBM
+					Mean val error: 1.3291956509911613, std 0.01685965678265792 LB 1.39
+			isLabel feature, soft thresh, binary_logloss
+					Mean val error: 1.335448021767931, std 0.013085767700726808
+			Keep only selected feat
+				isLabel feature, soft thresh, binary_logloss
+					Mean val error: 1.3383010252633298, std 0.00970182648398529 LB 1.39
+			isLabel feature, soft thresh, rmse, rf  (0.471742413333838)
+				Mean val error: 1.335448021767931, std 0.013085767700726808 
+			isLabel feature, soft thresh, rmse, rf calc on selected feat (0.39773439851270215)
+				Mean val error: 1.3391646249783367, std 0.0133289229059657 
+				
 
 		Handpicked Aggregates
 			raw features
@@ -153,3 +165,15 @@ LightGBM num_leaves=53, lr=0.005, bagging_fraction=0.67, feature_fraction=0.35, 
 					Mean val error: 1.3410909357356957, std 0.015300347808043454
 			handpicked features
 				Mean val error: 1.395187481712994, std 0.02124829847293795
+
+
+Second LGBM
+	GlobalAgg
+		+50 tSVD +50 FA
+			rmse
+				Mean val error: 0.44935008052759484, std 0.005523116486361701 
+			No lambda
+				Mean val error: 0.4532691113951861, std 0.004746498859530963
+
+			logloss
+				Mean val error: 0.6881282141324494, std 0.0002401272259387272
