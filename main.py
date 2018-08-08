@@ -1,6 +1,6 @@
 import numpy as np
 from Dataset import KaggleDataset
-from Models import LightGBM, RNN_LSTM
+from Models import LightGBM, RNN_LSTM, Ensembler
 from Submission import create_submission_file
 
 LOAD_TEST = False

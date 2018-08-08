@@ -3,6 +3,7 @@ import lightgbm as lgb
 # import xgboost as xgb
 import catboost as cb
 from sklearn.model_selection import KFold, GridSearchCV
+from sklearn.metrics import mean_squared_error
 import os
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 from keras.layers import LSTM, Dense
@@ -38,6 +39,95 @@ def assert_time_series_dims(data):
                '2 or 3, but got {}'.format(data.shape)))
     return data
 
+
+class Ensembler():
+    '''Class responsible to ensemble several classifiers'''
+    def __init__(self, list_of_models):
+        self.list_of_models = list_of_models
+
+    def fit(self, train_X, train_y, val_X, val_y, ES_rounds=100, steps=5000,
+            verbose=150, oof_pred=False):
+        # Fit an ensembler model using by averaging predictions
+        # Train individual models
+        oof_predictions = []
+        for model in self.list_of_models:
+            _, oof_pred = model.fit(train_X, train_y, val_X, val_y,
+                                    ES_rounds=100, steps=5000,
+                                    verbose=150, oof_pred=True)
+            oof_predictions.append(oof_pred)
+
+        pred_y = np.average(oof_predictions, axis=0)
+        rmse = np.sqrt(mean_squared_error(val_y, pred_y))
+        print('Root mean squared error ', rmse)
+        return pred_y
+
+    def cv(self, X, Y, ensembler_model=None, nfold=5,  ES_rounds=100, steps=5000, random_seed=143,
+           bootstrap=False, bagging_size_ratio=1, oof_pred=False):
+        # Use CV or Bagging to train the Ensembler model
+        #  First get oof predictions
+        oof_predictions = []
+        for model in self.list_of_models:
+            oof_pred = model.cv(X, Y, nfold=5,  ES_rounds=100, steps=5000, random_seed=random_seed,
+                                bootstrap=False, bagging_size_ratio=1, shuffle=False, oof_pred=True)
+            oof_predictions.append(oof_pred)
+        oof_predictions = np.array(oof_predictions)
+        # Perform average
+        if ensembler_model is None:
+            pred_y = np.average(oof_predictions, axis=0)
+            rmse = np.sqrt(mean_squared_error(Y, pred_y))
+            print('Root mean squared error ', rmse)
+        # else:
+            # ens_train_X = oof_predictions.T
+            # Train ensembler model on individual predictions
+            # if bootstrap:
+            #     splits = generate_bagging_splits(
+            #         X.shape[0], nfold,
+            #         bagging_size_ratio=bagging_size_ratio,
+            #         random_seed=random_seed)
+
+            # else:
+            #     kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
+            #     splits = kf.split(X, y=Y)
+
+            # kFold_results = []
+            # oof_results = []
+            # for train_index, val_index in splits:
+            #     x_train = X[train_index]
+            #     y_train = Y[train_index]
+            #     x_val = X[val_index]
+            #     y_val = Y[val_index]
+
+            #     evals_result, oof_prediction = self.fit(train_X=x_train, train_y=y_train,
+            #                                             val_X=x_val, val_y=y_val,
+            #                                             ES_rounds=100,
+            #                                             steps=10000,
+            #                                             oof_pred=oof_pred)
+            #     if oof_pred:
+            #         oof_results.extend(oof_prediction)
+            #     if evals_result:
+            #         kFold_results.append(
+            #             np.array(
+            #                 self.get_best_metric(
+            #                     evals_result['valid_1'][self.params['metric']])))
+
+            # kFold_results = np.array(kFold_results)
+            # if kFold_results.size > 0:
+            #     print('Mean val error: {}, std {} '.format(
+            #         kFold_results.mean(), kFold_results.std()))
+            # if oof_pred:
+            #     return np.array(oof_results)
+
+    def predict(self, test_X, logloss=True):
+        '''Predict using a fitted model'''
+        predictions = []
+        for model in self.list_of_models:
+            predictions.append(model.predict(test_X, logloss=logloss))
+        if self.ensembler_model is not None:
+            pred_y = self.ensembler_model.predict(np.array(predictions), logloss=False)
+        else:
+            pred_y = np.average(predictions, axis=0)
+
+        return pred_y
 
 class LightGBM():
     '''Microsoft LightGBM class wrapper'''
@@ -88,7 +178,7 @@ class LightGBM():
         return evals_result, pred
 
     def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, random_seed=143,
-           bootstrap=False, bagging_size_ratio=1, oof_pred=False):
+           bootstrap=False, bagging_size_ratio=1, shuffle=True, oof_pred=False):
         # Train LGB model using CV
         if bootstrap:
             splits = generate_bagging_splits(
@@ -97,7 +187,7 @@ class LightGBM():
                 random_seed=random_seed)
 
         else:
-            kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
+            kf = KFold(n_splits=nfold, shuffle=shuffle, random_state=random_seed)
             splits = kf.split(X, y=Y)
 
         kFold_results = []
