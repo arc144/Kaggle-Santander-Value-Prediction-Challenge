@@ -40,8 +40,20 @@ def assert_time_series_dims(data):
     return data
 
 
+class NonFittedError(Exception):
+
+    def __init__(self, message, errors):
+
+        # Call the base class constructor with the parameters it needs
+        super().__init__(message)
+
+        # Now for your custom code...
+        self.errors = errors
+
+
 class Ensembler():
     '''Class responsible to ensemble several classifiers'''
+
     def __init__(self, list_of_models):
         self.list_of_models = list_of_models
 
@@ -61,13 +73,13 @@ class Ensembler():
         print('Root mean squared error ', rmse)
         return pred_y
 
-    def cv(self, X, Y, ensembler_model=None, nfold=5,  ES_rounds=100, steps=5000, random_seed=143,
+    def cv(self, X, Y, ensembler_model=None, nfold=5, ES_rounds=100, steps=5000, random_seed=143,
            bootstrap=False, bagging_size_ratio=1, oof_pred=False):
         # Use CV or Bagging to train the Ensembler model
         #  First get oof predictions
         oof_predictions = []
         for model in self.list_of_models:
-            oof_pred = model.cv(X, Y, nfold=5,  ES_rounds=100, steps=5000, random_seed=random_seed,
+            oof_pred = model.cv(X, Y, nfold=5, ES_rounds=100, steps=5000, random_seed=random_seed,
                                 bootstrap=False, bagging_size_ratio=1, shuffle=False, oof_pred=True)
             oof_predictions.append(oof_pred)
         oof_predictions = np.array(oof_predictions)
@@ -123,11 +135,13 @@ class Ensembler():
         for model in self.list_of_models:
             predictions.append(model.predict(test_X, logloss=logloss))
         if self.ensembler_model is not None:
-            pred_y = self.ensembler_model.predict(np.array(predictions), logloss=False)
+            pred_y = self.ensembler_model.predict(
+                np.array(predictions), logloss=False)
         else:
             pred_y = np.average(predictions, axis=0)
 
         return pred_y
+
 
 class LightGBM():
     '''Microsoft LightGBM class wrapper'''
@@ -148,8 +162,8 @@ class LightGBM():
             "verbosity": -1,
             "seed": 42,
             "device": device,
-            "gpu_platform_id":  0,
-            "gpu_device_id":  0,
+            "gpu_platform_id": 0,
+            "gpu_device_id": 0,
         }
         for key, value in kwargs.items():
             self.params[key] = value
@@ -177,7 +191,7 @@ class LightGBM():
             pred = None
         return evals_result, pred
 
-    def cv(self, X, Y, nfold=5,  ES_rounds=100, steps=5000, random_seed=143,
+    def cv(self, X, Y, nfold=5, ES_rounds=100, steps=5000, random_seed=143,
            bootstrap=False, bagging_size_ratio=1, shuffle=True, oof_pred=False):
         # Train LGB model using CV
         if bootstrap:
@@ -187,7 +201,8 @@ class LightGBM():
                 random_seed=random_seed)
 
         else:
-            kf = KFold(n_splits=nfold, shuffle=shuffle, random_state=random_seed)
+            kf = KFold(n_splits=nfold, shuffle=shuffle,
+                       random_state=random_seed)
             splits = kf.split(X, y=Y)
 
         kFold_results = []
@@ -218,8 +233,8 @@ class LightGBM():
         if oof_pred:
             return np.array(oof_results)
 
-    def cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100, steps=5000,
-                   random_seed=143, logloss=True,
+    def cv_predict(self, X, Y, test_X, nfold=5, ES_rounds=100, steps=5000,
+                   random_seed=143, logloss=False,
                    bootstrap=False, bagging_size_ratio=1, oof_pred=False):
         '''Fit model using CV and predict test using the average
          of all folds'''
@@ -270,7 +285,7 @@ class LightGBM():
             return pred_y / nfold, np.array(oof_results)
         return pred_y / nfold
 
-    def multi_seed_cv_predict(self, X, Y, test_X, nfold=5,  ES_rounds=100,
+    def multi_seed_cv_predict(self, X, Y, test_X, nfold=5, ES_rounds=100,
                               steps=5000,
                               random_seed=[143, 135, 138], logloss=True,
                               bootstrap=False, bagging_size_ratio=1):
@@ -291,7 +306,7 @@ class LightGBM():
 
         return pred / len(random_seed)
 
-    def predict(self, test_X, logloss=True):
+    def predict(self, test_X, logloss=False):
         '''Predict using a fitted model'''
         pred_y = self.model.predict(
             test_X, num_iteration=self.model.best_iteration)
@@ -303,6 +318,190 @@ class LightGBM():
                     test_X, logloss=True):
         evals_result = self.fit(train_X, train_y, val_X, val_y)
         pred_y = self.predict(test_X, logloss)
+        return evals_result, pred_y
+
+    def optmize_hyperparams(self, param_grid, X, Y,
+                            cv=4, scoring='neg_mean_squared_error',
+                            verbose=1):
+        '''Use GridSearchCV to optimize models params'''
+        params = self.params
+        params['learning_rate'] = 0.05
+        params['n_estimators'] = 1000
+        gsearch1 = GridSearchCV(estimator=lgb.LGBMModel(**params),
+                                param_grid=param_grid,
+                                scoring=scoring,
+                                n_jobs=1,
+                                iid=False,
+                                cv=4)
+        gsearch1.fit(X, Y)
+        scores = gsearch1.grid_scores_
+        best_params = gsearch1.best_params_
+        best_score = np.sqrt(-gsearch1.best_score_)
+        if verbose > 0:
+            if verbose > 1:
+                print('Scores are: ', scores)
+            print('Best params: ', best_params)
+            print('Best score: ', best_score)
+
+
+class CatBoost():
+    '''Yandex catboost class wrapper
+    Reference values:
+         objective='rmse', eval_metric='rmse',
+         iterations=1000,  random_seed=143,
+         l2_leaf_reg=3,
+         bootstrap_type='Bayesian', bagging_temperature=1,
+         subsample=0.66, sampling_frequency='PerTreeLevel',
+         rsm=1,
+         lr=0.03,
+         nan_mode='Min',
+         use_best_model='True',
+         max_depth=6,
+         ignored_features=None, one_hot_max_size=2,
+         task_type='CPU', verbose=True'''
+
+    def __init__(self, **kwargs):
+
+        self.params = {}
+        self.is_fitted = False
+        for key, value in kwargs.items():
+            self.params[key] = value
+        self.model = cb.CatBoost(self.params)
+
+        if self.params['objective'] in ['auc', 'binary_logloss', 'multi_logloss']:
+            self.get_best_metric = max
+        else:
+            self.get_best_metric = min
+
+    def fit(self, train_X, train_y, val_X=None, val_y=None, ES_rounds=100,
+            verbose=150, use_best_model=True, oof_pred=True):
+        # Train Catboost model
+        # val_set = np.array([(x, y) for x, y in zip(val_X, val_y)])
+        self.model.fit(X=train_X, y=train_y,
+                       eval_set=(val_X, val_y) if val_X is not None else None,
+                       early_stopping_rounds=ES_rounds,
+                       verbose_eval=verbose)
+        if oof_pred:
+            pred = self.predict(val_X, logloss=False)
+            oof_result = np.sqrt(mean_squared_error(val_y, pred))
+        else:
+            pred = None
+            oof_result = None
+        self.is_fitted = True
+        return oof_result, pred
+
+    def cv(self, X, Y, nfold=5, ES_rounds=100, random_seed=143,
+           bootstrap=False, bagging_size_ratio=1,
+           shuffle=True, oof_pred=False, verbose=100):
+        # Train LGB model using CV
+        if bootstrap:
+            splits = generate_bagging_splits(
+                X.shape[0], nfold,
+                bagging_size_ratio=bagging_size_ratio,
+                random_seed=random_seed)
+
+        else:
+            kf = KFold(n_splits=nfold, shuffle=shuffle,
+                       random_state=random_seed)
+            splits = kf.split(X, y=Y)
+
+        kFold_results = []
+        oof_results = []
+        for train_index, val_index in splits:
+            x_train = X[train_index]
+            y_train = Y[train_index]
+            x_val = X[val_index]
+            y_val = Y[val_index]
+
+            evals_result, oof_prediction = self.fit(
+                train_X=x_train, train_y=y_train,
+                val_X=x_val, val_y=y_val,
+                ES_rounds=ES_rounds,
+                oof_pred=True,
+                verbose=verbose)
+
+            if oof_pred:
+                oof_results.extend(oof_prediction)
+            if evals_result is not None:
+                kFold_results.append(evals_result)
+
+        kFold_results = np.array(kFold_results)
+        if kFold_results.size > 0:
+            print('Mean val error: {}, std {} '.format(
+                kFold_results.mean(), kFold_results.std()))
+        if oof_pred:
+            return np.array(oof_results)
+
+    def cv_predict(self, X, Y, test_X, nfold=5, ES_rounds=100,
+                   random_seed=143, shuffle=True, oof_pred=False,
+                   bootstrap=False, bagging_size_ratio=1,
+                   logloss=False, verbose=100):
+        '''Fit model using CV and predict test using the average
+         of all folds'''
+        if bootstrap:
+            splits = generate_bagging_splits(
+                X.shape[0], nfold,
+                bagging_size_ratio=bagging_size_ratio,
+                random_seed=random_seed)
+
+        else:
+            kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
+            splits = kf.split(X, y=Y)
+
+        kFold_results = []
+        oof_results = []
+        for i, (train_index, val_index) in enumerate(splits):
+            x_train = X[train_index]
+            y_train = Y[train_index]
+            x_val = X[val_index]
+            y_val = Y[val_index]
+
+            evals_result, oof_prediction = self.fit(
+                train_X=x_train, train_y=y_train,
+                val_X=x_val, val_y=y_val,
+                ES_rounds=ES_rounds,
+                oof_pred=True,
+                verbose=verbose)
+
+            if oof_pred:
+                oof_results.extend(oof_prediction)
+            if evals_result is not None:
+                kFold_results.append(evals_result)
+
+            # Get predictions
+            if not i:
+                pred_y = self.predict(test_X, logloss=logloss)
+            else:
+                pred_y += self.predict(test_X, logloss=logloss)
+
+        kFold_results = np.array(kFold_results)
+        if kFold_results.size > 0:
+            print('Mean val error: {}, std {} '.format(
+                kFold_results.mean(), kFold_results.std()))
+
+        # Divide pred by the number of folds and return
+        if oof_pred:
+            return pred_y / nfold, np.array(oof_results)
+        return pred_y / nfold
+
+    def predict(self, test_X, logloss=False):
+        '''Predict using a fitted model'''
+        if not self.is_fitted:
+            raise NonFittedError(('Model has not been fitted.',
+                                  ' First fit the model before predicting.'))
+        pred_y = self.model.predict(test_X)
+        if logloss:
+            pred_y = np.expm1(pred_y)
+        return pred_y
+
+    def fit_predict(self, train_X, train_y, test_X, val_X=None, val_y=None,
+                    ES_rounds=100, verbose=150, use_best_model=True,
+                    oof_pred=True, logloss=False):
+        evals_result, oof_pred = self.fit(train_X, train_y, val_X, val_y,
+                                          ES_rounds=ES_rounds, verbose=verbose,
+                                          use_best_model=use_best_model,
+                                          oof_pred=oof_pred)
+        pred_y = self.predict(test_X, logloss=logloss)
         return evals_result, pred_y
 
     def optmize_hyperparams(self, param_grid, X, Y,
@@ -408,7 +607,7 @@ class RNN_LSTM():
         pred_y = self.predict(test_X, logloss)
         return history, pred_y
 
-    def cv(self, X, Y, nfold=5,  epochs=5, mb_size=10, random_seed=143,
+    def cv(self, X, Y, nfold=5, epochs=5, mb_size=10, random_seed=143,
            scale_data=True, early_stop=True,
             bootstrap=False, bagging_size_ratio=1):
         # Train LGB model using CV
@@ -443,7 +642,7 @@ class RNN_LSTM():
             print('Mean val error: {}, std {} '.format(
                 kFold_results.mean(), kFold_results.std()))
 
-    def cv_predict(self, X, Y, test_X, nfold=5,  epochs=5, mb_size=10,
+    def cv_predict(self, X, Y, test_X, nfold=5, epochs=5, mb_size=10,
                    random_seed=143, logloss=True,
                    scale_data=True, early_stop=True,
                    bootstrap=False, bagging_size_ratio=1):

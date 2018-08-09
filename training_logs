@@ -177,3 +177,15 @@ Second LGBM
 
 			logloss
 				Mean val error: 0.6881282141324494, std 0.0002401272259387272
+
+
+Catboost
+	rsm = 0.5
+		Mean val error: 1.3617291162894818, std 0.01608728676182377
+	rsm = 0.25
+		Mean val error: 1.3583037361199821, std 0.018067717978406075 
+	border_count = 16
+		Mean val error: 1.3569637921889204, std 0.015117477261322669
+	border_count=15
+		Mean val error: 1.3562452449431068, std 0.019306373563898017 
+	
