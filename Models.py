@@ -381,13 +381,13 @@ class CatBoost():
                        eval_set=(val_X, val_y) if val_X is not None else None,
                        early_stopping_rounds=ES_rounds,
                        verbose_eval=verbose)
+        self.is_fitted = True
         if oof_pred:
             pred = self.predict(val_X, logloss=False)
             oof_result = np.sqrt(mean_squared_error(val_y, pred))
         else:
             pred = None
             oof_result = None
-        self.is_fitted = True
         return oof_result, pred
 
     def cv(self, X, Y, nfold=5, ES_rounds=100, random_seed=143,
