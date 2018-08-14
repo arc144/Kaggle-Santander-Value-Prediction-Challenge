@@ -3,7 +3,7 @@ from Dataset import KaggleDataset
 from Models import LightGBM, RNN_LSTM, Ensembler, CatBoost
 from Submission import create_submission_file
 
-LOAD_TEST = False
+LOAD_TEST = True
 # Define paths and anything related to OS
 train_path = './train.csv'
 if LOAD_TEST:
@@ -27,20 +27,20 @@ dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 # dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
 #                                              num=75, importance_type='gain')
 
-#dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
-#                                         threshold='soft',
-#                                         verbose=True,
-#                                         calc_on_selected_feat=True)
-#
-#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-#                                      n_components=50, method='fa',
-#                                      comp_stats=False,
-#                                      normalize=False)
-#
-#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-#                                      n_components=50, method='svd',
-#                                      comp_stats=False,
-#                                      normalize=False)
+dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
+                                         threshold='soft',
+                                         verbose=True,
+                                         calc_on_selected_feat=False)
+
+dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+                                      n_components=50, method='fa',
+                                      comp_stats=False,
+                                      normalize=False)
+
+dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+                                      n_components=50, method='svd',
+                                      comp_stats=False,
+                                      normalize=False)
 
 # dataset.compute_cluster_features('both' if LOAD_TEST else 'train',
 #                                 iter_cluster=range(2, 7))
@@ -93,7 +93,7 @@ MODEL_TYPE = 'CatBoost'     # Either LightGBM, XGBoost, CatBoost or LSTM
 
 if MODEL_TYPE == 'LightGBM':
     LightGBM_params = dict(boosting='gbdt',
-                           num_leaves=53, lr=0.005, bagging_fraction=0.71,
+                           num_leaves=53, lr=0.0039, bagging_fraction=0.71,
                            max_depth=8,
                            max_bin=201,
                            feature_fraction=0.23, bagging_freq=3,
@@ -101,7 +101,7 @@ if MODEL_TYPE == 'LightGBM':
                            min_sum_hessian_in_leaf=1e-1,
                            use_missing=True, zero_as_missing=False,
                            lambda_l1=1e-1, lambda_l2=1,
-                           device='cpu', num_threads=8)
+                           device='gpu', num_threads=8)
 
 
     fit_params = dict(nfold=NFOLD,  ES_rounds=100,
@@ -110,18 +110,18 @@ if MODEL_TYPE == 'LightGBM':
     
     model = LightGBM(**LightGBM_params)
 
-if MODEL_TYPE == 'CatBoost':
+elif MODEL_TYPE == 'CatBoost':
     CatBoost_params = dict(objective='RMSE', eval_metric='RMSE',
                            iterations=1000,  random_seed=RANDOM_SEED,
-                           l2_leaf_reg=6,
-                           bootstrap_type='Bayesian', bagging_temperature=1,
-                           rsm=0.25,
+                           l2_leaf_reg=3,
+                           bootstrap_type='Bayesian', bagging_temperature=16,
+                           rsm=0.23,
                            border_count=15,
                            learning_rate=0.03,
                            nan_mode='Min',
                            use_best_model=True,
                            max_depth=6,
-                           task_type='CPU', thread_count=4,
+                           task_type='CPU', thread_count=8,
                            verbose=True)
 
     fit_params = dict(nfold=NFOLD,  ES_rounds=30,
