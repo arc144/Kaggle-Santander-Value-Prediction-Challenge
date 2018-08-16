@@ -109,6 +109,7 @@ class KaggleDataset():
         self.verbose = verbose
         # Default settings, to be overidden if required
         self.normalize = False
+        self.use_aggregates = False
         self.reduce_dim_nb = 0
         self.reduce_dim_method = 'svd'
 
@@ -128,6 +129,7 @@ class KaggleDataset():
 
         # Create aggregates dfs
         self.train_agg = pd.DataFrame(index=self.train_df.index)
+
         if test_path is not None:
             self.test_agg = pd.DataFrame(index=self.test_df.index)
 
@@ -146,7 +148,7 @@ class KaggleDataset():
     def get_train_data(self, logloss=True, round_targets=False,
                        normalize=False, n_components=None,
                        reduce_dim_nb=0, use_aggregates=True,
-                       reduce_dim_method='svd'):
+                       get_leaky_data=None, reduce_dim_method='svd'):
         '''Convert train_df to train array'''
         # Save settings to proccess test data later on
         self.normalize = normalize
@@ -157,8 +159,10 @@ class KaggleDataset():
         x = self.train_df.drop(["target"], axis=1).values
         if logloss:
             y = np.log1p(self.train_df["target"].values)
+
         else:
             y = self.train_df["target"].values
+
         if round_targets:
             y = np.around(y,
                           decimals=round_targets)
@@ -177,6 +181,14 @@ class KaggleDataset():
         # Compute aggregates if required
         if use_aggregates:
             x = np.concatenate([x, self.train_agg.values], axis=-1)
+
+        # Get leaky rows for training
+        if get_leaky_data is not None:
+            x_lk, y_lk = self.get_validation_set_from_leaky_test(
+                get_leaky_data, logloss=logloss)
+            x = np.concatenate([x, x_lk], axis=0)
+            y = np.concatenate([y, y_lk], axis=0)
+
         return x, y
 
     def get_test_data(self):
@@ -640,7 +652,8 @@ class KaggleDataset():
             y = np.array([target[i] in x[i]
                           for i in range(x.shape[0])]).astype(np.int)
         else:
-            x, target = self.get_train_data(use_aggregates=True, logloss=False)
+            x, target = self.get_train_data(
+                use_aggregates=True, logloss=False)
             y = np.array([target[i] in x[i]
                           for i in range(x.shape[0])]).astype(np.int)
 
@@ -680,26 +693,25 @@ class KaggleDataset():
                 dict(is_label=test_feat), index=self.test_df.index)
             self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
 
-    # def keep_less_zeros_features(self, n_keep=800, dataset='both',
-    #                              return_only=False):
-    #     self.tra
-    #     if dataset == 'test' or dataset == 'both':
-    #         new_test_df = self.test_df.filter(items=features)
-    #         if not return_only:
-    #             self.test_df = new_test_df
-    #     if dataset == 'train' or dataset == 'both':
-    #         features.append('target')
-    #         new_train_df = self.train_df.filter(items=features)
-    #         if not return_only:
-    #             self.train_df = new_train_df
+    def get_validation_set_from_leaky_test(self, sub_path,
+                                           logloss=False, return_index=False):
+        '''Use leaky rows from test as validation set'''
+        val_df = load_df_from_path(sub_path)
+        idx = list(val_df[val_df.target > 0].index)
+        val_df = val_df.target.values
+        X_test = self.get_test_data()[val_df > 0]
+        Y_test = val_df[val_df > 0]
+        if logloss:
+            Y_test = np.log1p(Y_test)
 
-    #     if return_only:
-    #         if dataset == 'train':
-    #             return new_train_df
-    #         elif dataset == 'test':
-    #             return new_test_df
-    #         elif dataset == 'both':
-    #             return new_train_df, new_test_df
+        if return_index:
+            return idx, X_test, Y_test
+        else:
+            return X_test, Y_test
+
+    # def get_train_data_plus_leaky_test_rows(self, **kwargs):
+    #     '''Get leaky test rows as additional training data'''
+    #     get_train_data
 
 if __name__ == '__main__':
     train_path = './train.csv'

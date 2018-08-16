@@ -174,7 +174,7 @@ class LightGBM():
             self.get_best_metric = min
 
     def fit(self, train_X, train_y, val_X, val_y, ES_rounds=100, steps=5000,
-            verbose=150, oof_pred=False):
+            verbose=150, oof_pred=False, **kwargs):
         # Train LGB model
         lgtrain = lgb.Dataset(train_X, label=train_y)
         lgval = lgb.Dataset(val_X, label=val_y)
@@ -314,8 +314,8 @@ class LightGBM():
             pred_y = np.expm1(pred_y)
         return pred_y
 
-    def fit_predict(self, train_X, train_y, val_X, val_y,
-                    test_X, logloss=True):
+    def fit_predict(self, train_X, train_y, test_X, val_X=None, val_y=None,
+                    logloss=True, **kwargs):
         evals_result = self.fit(train_X, train_y, val_X, val_y)
         pred_y = self.predict(test_X, logloss)
         return evals_result, pred_y

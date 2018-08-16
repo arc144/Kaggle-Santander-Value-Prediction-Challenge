@@ -17,7 +17,7 @@ dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 
 #dataset.remove_fillers_from_data('both' if LOAD_TEST else 'train', 20)
 
-#dataset.compute_aggregates_for_selected_features(
+# dataset.compute_aggregates_for_selected_features(
 #    'both' if LOAD_TEST else 'train')
 #
 #dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
@@ -27,20 +27,20 @@ dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 # dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
 #                                              num=75, importance_type='gain')
 
-dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
-                                         threshold='soft',
-                                         verbose=True,
-                                         calc_on_selected_feat=False)
-
-dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-                                      n_components=50, method='fa',
-                                      comp_stats=False,
-                                      normalize=False)
-
-dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
-                                      n_components=50, method='svd',
-                                      comp_stats=False,
-                                      normalize=False)
+#dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
+#                                         threshold='soft',
+#                                         verbose=True,
+#                                         calc_on_selected_feat=False)
+#
+#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+#                                      n_components=50, method='fa',
+#                                      comp_stats=False,
+#                                      normalize=False)
+#
+#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+#                                      n_components=50, method='svd',
+#                                      comp_stats=False,
+#                                      normalize=False)
 
 # dataset.compute_cluster_features('both' if LOAD_TEST else 'train',
 #                                 iter_cluster=range(2, 7))
@@ -52,6 +52,9 @@ dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 # dataset.remove_different_distribution_features()
 
 # %% Get data for trainning
+VAL_FROM_LEAKY_TEST_ROWS = True
+TRAIN_WITH_LEAKY_ROWS = True
+LEAKY_TEST_SUB_PATH = 'baseline_sub_lag_36.csv'
 TIME_SERIES = False
 LOGLOSS = True
 NORMALIZE = False
@@ -83,18 +86,22 @@ if LOAD_TEST:
     else:
         X_test = dataset.get_test_data()
 
+if VAL_FROM_LEAKY_TEST_ROWS:
+    X_val, Y_val = dataset.get_validation_set_from_leaky_test(
+        LEAKY_TEST_SUB_PATH, logloss=LOGLOSS)
+
 # %% Split to train and val data
 RANDOM_SEED = 143
 NFOLD = 3
 BAGGING = True
 # Train model on KFold
-MODEL_TYPE = 'CatBoost'     # Either LightGBM, XGBoost, CatBoost or LSTM
+MODEL_TYPE = 'LightGBM'     # Either LightGBM, XGBoost, CatBoost or LSTM
 
 
 if MODEL_TYPE == 'LightGBM':
     LightGBM_params = dict(boosting='gbdt',
                            num_leaves=53, lr=0.0039, bagging_fraction=0.71,
-                           max_depth=8,
+                           max_depth=8, 
                            max_bin=201,
                            feature_fraction=0.23, bagging_freq=3,
                            min_data_in_leaf=12,  # 12
@@ -103,11 +110,10 @@ if MODEL_TYPE == 'LightGBM':
                            lambda_l1=1e-1, lambda_l2=1,
                            device='gpu', num_threads=8)
 
-
     fit_params = dict(nfold=NFOLD,  ES_rounds=100,
                       steps=50000, random_seed=RANDOM_SEED,
                       bootstrap=BAGGING, bagging_size_ratio=1)
-    
+
     model = LightGBM(**LightGBM_params)
 
 elif MODEL_TYPE == 'CatBoost':
@@ -127,10 +133,10 @@ elif MODEL_TYPE == 'CatBoost':
     fit_params = dict(nfold=NFOLD,  ES_rounds=30,
                       random_seed=RANDOM_SEED,
                       bootstrap=BAGGING, bagging_size_ratio=1,
-                      verbose=100)  
-    
+                      verbose=100)
+
     model = CatBoost(**CatBoost_params)
-    
+
 elif MODEL_TYPE == 'LSTM':
     LSTM_params = dict(units=10,
                        layers=1,
@@ -138,19 +144,29 @@ elif MODEL_TYPE == 'LSTM':
                        lr_decay=0,
                        in_shape=(40, 1),
                        out_shape=1)
-    
+
     fit_params = dict(nfold=NFOLD,  epochs=100,
                       mb_size=10, random_seed=RANDOM_SEED,
                       bootstrap=BAGGING, bagging_size_ratio=1,
                       scale_data=True, early_stop=True)
-    
+
     model = RNN_LSTM(**LSTM_params)
 
 if LOAD_TEST:
-    pred = model.cv_predict(X, Y, X_test, logloss=True, **fit_params)
+    if VAL_FROM_LEAKY_TEST_ROWS:
+        _, pred = model.fit_predict(X, Y, X_test,
+                                 val_X=X_val, val_y=Y_val,
+                                 logloss=True)
+    else:
+        pred = model.cv_predict(X, Y, X_test, logloss=True, **fit_params)
 
 else:
-    pred = model.cv(X, Y, **fit_params)
+    if VAL_FROM_LEAKY_TEST_ROWS:
+        _, pred = model.fit(X, Y,
+                         val_X=X_val, val_y=Y_val,
+                         logloss=True)
+    else:
+        pred = model.cv(X, Y, **fit_params)
 
 
 # %%Create submission file
@@ -161,15 +177,15 @@ if LOAD_TEST:
 OPTIMIZE = False
 if OPTIMIZE:
     param_grid = {
-#            'num_leaves': np.arange(8, 10, 1), 
-#            'min_data_in_leaf': np.arange(5, 7, 1),
-#            'max_depth': np.arange(1, 10, 2),
-                'bagging_fraction': np.arange(0.78, 0.82, 0.01),
-#             'bagging_freq': np.arange(1, 5, 1), 
-#             'lambda_l1': [np.power(10, x) for x in np.arange(0.9, 1.2, 0.1).astype(float)],
-#             'lambda_l2': [np.power(10, x) for x in np.arange(0.9, 1.2, 0.1).astype(float)],
-#        'max_bin': range(100, 300, 50),
-#                'feature_fraction': np.arange(0.6, 0.65, 0.025),
+        #            'num_leaves': np.arange(8, 10, 1),
+        #            'min_data_in_leaf': np.arange(5, 7, 1),
+        #            'max_depth': np.arange(1, 10, 2),
+        'bagging_fraction': np.arange(0.78, 0.82, 0.01),
+        #             'bagging_freq': np.arange(1, 5, 1),
+        #             'lambda_l1': [np.power(10, x) for x in np.arange(0.9, 1.2, 0.1).astype(float)],
+        #             'lambda_l2': [np.power(10, x) for x in np.arange(0.9, 1.2, 0.1).astype(float)],
+        #        'max_bin': range(100, 300, 50),
+        #                'feature_fraction': np.arange(0.6, 0.65, 0.025),
         #        'min_child_weight'
         #        'reg_lambda'
         #        'reg_alpha'
