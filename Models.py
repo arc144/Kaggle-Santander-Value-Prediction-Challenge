@@ -2,6 +2,7 @@ import numpy as np
 import lightgbm as lgb
 # import xgboost as xgb
 import catboost as cb
+from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.metrics import mean_squared_error
 import os
@@ -174,7 +175,7 @@ class LightGBM():
             self.get_best_metric = min
 
     def fit(self, train_X, train_y, val_X, val_y, ES_rounds=100, steps=5000,
-            verbose=150, oof_pred=False, **kwargs):
+            verbose=150, return_oof_pred=True, **kwargs):
         # Train LGB model
         lgtrain = lgb.Dataset(train_X, label=train_y)
         lgval = lgb.Dataset(val_X, label=val_y)
@@ -185,7 +186,7 @@ class LightGBM():
                                early_stopping_rounds=ES_rounds,
                                verbose_eval=verbose,
                                evals_result=evals_result)
-        if oof_pred:
+        if return_oof_pred:
             pred = self.predict(val_X, logloss=False)
         else:
             pred = None
@@ -217,7 +218,7 @@ class LightGBM():
                                                     val_X=x_val, val_y=y_val,
                                                     ES_rounds=100,
                                                     steps=10000,
-                                                    oof_pred=oof_pred)
+                                                    return_oof_pred=oof_pred)
             if oof_pred:
                 oof_results.extend(oof_prediction)
             if evals_result:
@@ -260,7 +261,7 @@ class LightGBM():
                                                     val_X=x_val, val_y=y_val,
                                                     ES_rounds=100,
                                                     steps=10000,
-                                                    oof_pred=oof_pred)
+                                                    return_oof_pred=oof_pred)
             if oof_pred:
                 oof_results.extend(oof_prediction)
             if evals_result:
@@ -315,10 +316,14 @@ class LightGBM():
         return pred_y
 
     def fit_predict(self, train_X, train_y, test_X, val_X=None, val_y=None,
-                    logloss=True, **kwargs):
-        evals_result = self.fit(train_X, train_y, val_X, val_y)
+                    logloss=True, return_oof_pred=False, **kwargs):
+        evals_result, oof_pred = self.fit(
+            train_X, train_y, val_X, val_y, return_oof_pred=return_oof_pred)
         pred_y = self.predict(test_X, logloss)
-        return evals_result, pred_y
+        if return_oof_pred:
+            return evals_result, pred_y, oof_pred
+        else:
+            return evals_result, pred_y
 
     def optmize_hyperparams(self, param_grid, X, Y,
                             cv=4, scoring='neg_mean_squared_error',
@@ -374,7 +379,7 @@ class CatBoost():
             self.get_best_metric = min
 
     def fit(self, train_X, train_y, val_X=None, val_y=None, ES_rounds=100,
-            verbose=150, use_best_model=True, oof_pred=True):
+            verbose=150, use_best_model=True, return_oof_pred=True):
         # Train Catboost model
         # val_set = np.array([(x, y) for x, y in zip(val_X, val_y)])
         self.model.fit(X=train_X, y=train_y,
@@ -382,7 +387,7 @@ class CatBoost():
                        early_stopping_rounds=ES_rounds,
                        verbose_eval=verbose)
         self.is_fitted = True
-        if oof_pred:
+        if return_oof_pred:
             pred = self.predict(val_X, logloss=False)
             oof_result = np.sqrt(mean_squared_error(val_y, pred))
         else:
@@ -417,7 +422,7 @@ class CatBoost():
                 train_X=x_train, train_y=y_train,
                 val_X=x_val, val_y=y_val,
                 ES_rounds=ES_rounds,
-                oof_pred=True,
+                return_oof_pred=True,
                 verbose=verbose)
 
             if oof_pred:
@@ -460,7 +465,7 @@ class CatBoost():
                 train_X=x_train, train_y=y_train,
                 val_X=x_val, val_y=y_val,
                 ES_rounds=ES_rounds,
-                oof_pred=True,
+                return_oof_pred=True,
                 verbose=verbose)
 
             if oof_pred:
@@ -496,13 +501,16 @@ class CatBoost():
 
     def fit_predict(self, train_X, train_y, test_X, val_X=None, val_y=None,
                     ES_rounds=100, verbose=150, use_best_model=True,
-                    oof_pred=True, logloss=False):
+                    return_oof_pred=True, logloss=False):
         evals_result, oof_pred = self.fit(train_X, train_y, val_X, val_y,
                                           ES_rounds=ES_rounds, verbose=verbose,
                                           use_best_model=use_best_model,
-                                          oof_pred=oof_pred)
+                                          return_oof_pred=return_oof_pred)
         pred_y = self.predict(test_X, logloss=logloss)
-        return evals_result, pred_y
+        if return_oof_pred:
+            return evals_result, pred_y, oof_pred
+        else:
+            return evals_result, pred_y
 
     def optmize_hyperparams(self, param_grid, X, Y,
                             cv=4, scoring='neg_mean_squared_error',
@@ -566,8 +574,14 @@ class RNN_LSTM():
         '''Train LSTM model'''
         self.scale_data = scale_data
         if scale_data:
-            train_X = self.scaler.fit_transform(train_X)
-            val_X = self.scaler.transform(val_X)
+            train_X = self.scaler.fit_transform(
+                np.reshape(train_X, (-1, np.prod(self.in_shape))))
+            val_X = self.scaler.transform(
+                np.reshape(val_X, (-1, np.prod(self.in_shape))))
+            train_X = np.reshape(
+                train_X, (-1, self.in_shape[0], self.in_shape[1]))
+            val_X = np.reshape(
+                val_X, (-1, self.in_shape[0], self.in_shape[1]))
         # Assert and correct data dims
         train_X = assert_time_series_dims(train_X)
         val_X = assert_time_series_dims(val_X)
@@ -688,3 +702,134 @@ class RNN_LSTM():
 
         # Divide pred by the number of folds and return
         return pred_y / nfold
+
+
+class LiRegression():
+    '''Linear regression class wrapper'''
+
+    def __init__(self, normalize):
+        self.normalize = normalize
+        self.is_fitted = False
+        self.model = LinearRegression(normalize)
+
+    def fit(self, train_X, train_y, val_X=None, val_y=None,
+            verbose=150, return_oof_pred=True):
+        self.model.fit(X=train_X, y=train_y)
+        self.is_fitted = True
+        if return_oof_pred:
+            pred = self.predict(val_X, logloss=False)
+            oof_result = np.sqrt(mean_squared_error(val_y, pred))
+        else:
+            pred = None
+            oof_result = None
+        return oof_result, pred
+
+    def cv(self, X, Y, nfold=5, random_seed=143,
+           bootstrap=False, bagging_size_ratio=1,
+           shuffle=True, oof_pred=False, verbose=100):
+        # Train LGB model using CV
+        if bootstrap:
+            splits = generate_bagging_splits(
+                X.shape[0], nfold,
+                bagging_size_ratio=bagging_size_ratio,
+                random_seed=random_seed)
+
+        else:
+            kf = KFold(n_splits=nfold, shuffle=shuffle,
+                       random_state=random_seed)
+            splits = kf.split(X, y=Y)
+
+        kFold_results = []
+        oof_results = []
+        for train_index, val_index in splits:
+            x_train = X[train_index]
+            y_train = Y[train_index]
+            x_val = X[val_index]
+            y_val = Y[val_index]
+
+            evals_result, oof_prediction = self.fit(
+                train_X=x_train, train_y=y_train,
+                val_X=x_val, val_y=y_val,
+                return_oof_pred=True)
+
+            if oof_pred:
+                oof_results.extend(oof_prediction)
+            if evals_result is not None:
+                kFold_results.append(evals_result)
+
+        kFold_results = np.array(kFold_results)
+        if kFold_results.size > 0:
+            print('Mean val error: {}, std {} '.format(
+                kFold_results.mean(), kFold_results.std()))
+        if oof_pred:
+            return np.array(oof_results)
+
+    def cv_predict(self, X, Y, test_X, nfold=5,
+                   random_seed=143, shuffle=True, oof_pred=False,
+                   bootstrap=False, bagging_size_ratio=1,
+                   logloss=False, verbose=100):
+        '''Fit model using CV and predict test using the average
+         of all folds'''
+        if bootstrap:
+            splits = generate_bagging_splits(
+                X.shape[0], nfold,
+                bagging_size_ratio=bagging_size_ratio,
+                random_seed=random_seed)
+
+        else:
+            kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
+            splits = kf.split(X, y=Y)
+
+        kFold_results = []
+        oof_results = []
+        for i, (train_index, val_index) in enumerate(splits):
+            x_train = X[train_index]
+            y_train = Y[train_index]
+            x_val = X[val_index]
+            y_val = Y[val_index]
+
+            evals_result, oof_prediction = self.fit(
+                train_X=x_train, train_y=y_train,
+                val_X=x_val, val_y=y_val,
+                return_oof_pred=True)
+
+            if oof_pred:
+                oof_results.extend(oof_prediction)
+            if evals_result is not None:
+                kFold_results.append(evals_result)
+
+            # Get predictions
+            if not i:
+                pred_y = self.predict(test_X, logloss=logloss)
+            else:
+                pred_y += self.predict(test_X, logloss=logloss)
+
+        kFold_results = np.array(kFold_results)
+        if kFold_results.size > 0:
+            print('Mean val error: {}, std {} '.format(
+                kFold_results.mean(), kFold_results.std()))
+
+        # Divide pred by the number of folds and return
+        if oof_pred:
+            return pred_y / nfold, np.array(oof_results)
+        return pred_y / nfold
+
+    def predict(self, test_X, logloss=False):
+        '''Predict using a fitted model'''
+        if not self.is_fitted:
+            raise NonFittedError(('Model has not been fitted.',
+                                  ' First fit the model before predicting.'))
+        pred_y = self.model.predict(test_X)
+        if logloss:
+            pred_y = np.expm1(pred_y)
+        return pred_y
+
+    def fit_predict(self, train_X, train_y, test_X, val_X=None, val_y=None,
+                    verbose=150, return_oof_pred=True, logloss=False):
+        evals_result, oof_pred = self.fit(train_X, train_y, val_X, val_y,
+                                          return_oof_pred=return_oof_pred)
+        pred_y = self.predict(test_X, logloss=logloss)
+        if return_oof_pred:
+            return evals_result, pred_y, oof_pred
+        else:
+            return evals_result, pred_y

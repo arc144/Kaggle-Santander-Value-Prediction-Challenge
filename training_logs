@@ -158,6 +158,39 @@ LightGBM num_leaves=53, lr=0.005, bagging_fraction=0.67, feature_fraction=0.35, 
 				Mean val error: 1.3391646249783367, std 0.0133289229059657 
 				
 
+			Global
+				500 FA + 500 svd
+					Mean val error: 1.3443113582042923, std 0.012213328491484226 
+					only selected
+						Mean val error: 1.3464256734290865, std 0.013129887514034667 
+					No raw feat
+						Mean val error: 1.3488030540721356, std 0.011368112951665345 
+				No raw feat
+					Mean val error: 1.3483355411030822, std 0.003914194774272698 
+			Only raw feat
+				Mean val error: 1.4452748079830842, std 0.018123576324320326
+			50 FA + 50 svd
+				Mean val error: 1.4043221570600268, std 0.01925986870945291 
+				No raw feat
+					Mean val error: 1.4733619034655874, std 0.009142613314614724 
+			100 FA + 100 svd
+				Mean val error: 1.4142163455630854, std 0.01887103869758124
+			30 FA + 30 svd
+				Mean val error: 1.4084809338497724, std 0.022370755660385436 
+			Keep only
+				Mean val error: 1.4360242019739091, std 0.016947144365442823 
+
+			sub_NoLogAgg
+				Mean val error: 1.3441848019353582, std 0.012648721118364709 
+			sub_onlyStatAggStat
+				Mean val error: 1.344019085944537, std 0.012920011540608565 
+			sub_onlyStat
+				Mean val error: 1.3506960093336255, std 0.013523561532086689 
+			sub_raw50dec
+				Mean val error: 1.4050878273202982, std 0.0202451292531366 LB1.48
+
+
+
 		Handpicked Aggregates
 			raw features
 				Mean val error: 1.3847763794789552, std 0.020711290805436603 
@@ -165,6 +198,23 @@ LightGBM num_leaves=53, lr=0.005, bagging_fraction=0.67, feature_fraction=0.35, 
 					Mean val error: 1.3410909357356957, std 0.015300347808043454
 			handpicked features
 				Mean val error: 1.395187481712994, std 0.02124829847293795
+
+		Using Leaky rows as Val
+			No Agg
+				1.43268
+			GlobalAgg
+				1.3773
+				isLabel
+					1.38105
+				
+
+				50 fa
+					1.38096
+				50 svd
+					1.42334
+
+
+
 
 
 Second LGBM
@@ -186,6 +236,30 @@ Catboost
 		Mean val error: 1.3583037361199821, std 0.018067717978406075 
 	border_count = 16
 		Mean val error: 1.3569637921889204, std 0.015117477261322669
-	border_count=15
+	border_count=15, l2_reg = 6
 		Mean val error: 1.3562452449431068, std 0.019306373563898017 
-	
+	l2_reg = 3
+		Mean val error: 1.354970955578734, std 0.020125588499708687
+	bagging_temperature = 10
+		Mean val error: 1.3546695353047893, std 0.021834556906026387 
+	bagging_temperature = 20
+		Mean val error: 1.3532642702564974, std 0.016293415694422372
+	bagging_temperature = 15
+		Mean val error: 1.351443312880426, std 0.019779787982763076
+	bagging_temperature = 16
+		Mean val error: 1.3551283170128372, std 0.018141942352914272 
+	rsm = 0.24
+		Mean val error: 1.3547230085073905, std 0.015077783488716573
+	rsm = 0.23
+		Mean val error: 1.354549701617767, std 0.019265463410422706
+
+
+Stacks
+LightGBM
+	All
+		Mean val error: 1.347298357151983, std 0.013297570586440328
+
+
+LightGBM
+	All
+		Mean val error: 1.346339598242426, std 0.013360295069835961 	
