@@ -1,7 +1,6 @@
-
 import numpy as np
 from Dataset import KaggleDataset
-from Models import LightGBM, RNN_LSTM, Ensembler, CatBoost
+from Models import LightGBM, RNN_LSTM, Ensembler, CatBoost, XGBoost
 from Submission import create_submission_file
 
 LOAD_TEST = False
@@ -14,7 +13,7 @@ else:
 # Load and preprocess Dataset
 dataset = KaggleDataset(train_path, test_path=test_path)
 
-#dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
+dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 
 #dataset.remove_fillers_from_data('both' if LOAD_TEST else 'train', 20)
 
@@ -56,7 +55,7 @@ dataset = KaggleDataset(train_path, test_path=test_path)
 VAL_FROM_LEAKY_TEST_ROWS = False
 TRAIN_WITH_LEAKY_ROWS = False
 LEAKY_TEST_SUB_PATH = 'baseline_sub_lag_37.csv'
-TIME_SERIES = True
+TIME_SERIES = False
 LOGLOSS = True
 NORMALIZE = False
 AGGREGATES = True
@@ -97,7 +96,7 @@ RANDOM_SEED = 143
 NFOLD = 3
 BAGGING = True
 # Train model on KFold
-MODEL_TYPE = 'LSTM'     # Either LightGBM, XGBoost, CatBoost or LSTM
+MODEL_TYPE = 'XGBoost'     # Either LightGBM, XGBoost, CatBoost or LSTM
 
 
 if MODEL_TYPE == 'LightGBM':
@@ -118,6 +117,27 @@ if MODEL_TYPE == 'LightGBM':
 
     model = LightGBM(**LightGBM_params)
 
+if MODEL_TYPE == 'XGBoost':
+    XGBoost_params = dict(booster='gbtree',
+                          silent=True,
+                          max_leaves=20,
+                          lr=0.003,
+                          subsample=0.5,
+                          max_depth=20, 
+                          max_bin=256,
+                          colsample_bytree=0.15,
+                          colsample_bylevel = 0.5, 
+                          gamma = 1.5,
+                          min_child_weight=57,
+                          reg_alpha=1e-1, reg_lambda=1,
+                          device='gpu', nthread=11)
+
+    fit_params = dict(nfold=NFOLD,  ES_rounds=10,
+                      steps=50000, random_seed=RANDOM_SEED,
+                      bootstrap=BAGGING, bagging_size_ratio=1)
+
+    model = XGBoost(**XGBoost_params)
+    
 elif MODEL_TYPE == 'CatBoost':
     CatBoost_params = dict(objective='RMSE', eval_metric='RMSE',
                            iterations=10000,  random_seed=RANDOM_SEED,
