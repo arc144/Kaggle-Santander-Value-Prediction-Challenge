@@ -3,7 +3,7 @@ from Dataset import KaggleDataset
 from Models import LightGBM, RNN_LSTM, Ensembler, CatBoost, XGBoost
 from Submission import create_submission_file
 
-LOAD_TEST = False
+LOAD_TEST = True
 # Define paths and anything related to OS
 train_path = './train.csv'
 if LOAD_TEST:
@@ -13,7 +13,7 @@ else:
 # Load and preprocess Dataset
 dataset = KaggleDataset(train_path, test_path=test_path)
 
-dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
+#dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 
 #dataset.remove_fillers_from_data('both' if LOAD_TEST else 'train', 20)
 
@@ -31,7 +31,7 @@ dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 #                                         threshold='soft',
 #                                         verbose=True,
 #                                         calc_on_selected_feat=False)
-##
+###
 #dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 #                                      n_components=50, method='fa',
 #                                      comp_stats=False,
@@ -52,10 +52,10 @@ dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
 # dataset.remove_different_distribution_features()
 
 # %% Get data for trainning
-VAL_FROM_LEAKY_TEST_ROWS = False
+VAL_FROM_LEAKY_TEST_ROWS = True
 TRAIN_WITH_LEAKY_ROWS = False
 LEAKY_TEST_SUB_PATH = 'baseline_sub_lag_37.csv'
-TIME_SERIES = False
+TIME_SERIES = True
 LOGLOSS = True
 NORMALIZE = False
 AGGREGATES = True
@@ -93,10 +93,10 @@ if VAL_FROM_LEAKY_TEST_ROWS:
 
 # %% Split to train and val data
 RANDOM_SEED = 143
-NFOLD = 3
-BAGGING = True
+NFOLD = 5
+BAGGING = False
 # Train model on KFold
-MODEL_TYPE = 'XGBoost'     # Either LightGBM, XGBoost, CatBoost or LSTM
+MODEL_TYPE = 'LSTM'     # Either LightGBM, XGBoost, CatBoost or LSTM
 
 
 if MODEL_TYPE == 'LightGBM':
@@ -130,7 +130,7 @@ if MODEL_TYPE == 'XGBoost':
                           gamma = 1.5,
                           min_child_weight=57,
                           reg_alpha=1e-1, reg_lambda=1,
-                          device='gpu', nthread=11)
+                          tree_method='auto', nthread=11)
 
     fit_params = dict(nfold=NFOLD,  ES_rounds=10,
                       steps=50000, random_seed=RANDOM_SEED,
@@ -163,8 +163,8 @@ elif MODEL_TYPE == 'LSTM':
     LSTM_params = dict(units=100,
                        layers=10,
                        lr=0.001,
-                       lr_decay=0.01,
-                       in_shape=(40, 80),
+                       lr_decay=0,
+                       in_shape=(40, 81),
                        out_shape=1)
 
     fit_params = dict(nfold=NFOLD,  epochs=1000,
@@ -181,7 +181,9 @@ if LOAD_TEST:
                                               logloss=True,
                                               return_oof_pred=True)
     else:
-        pred = model.cv_predict(X, Y, X_test, logloss=True, **fit_params)
+        pred, oof_pred = model.cv_predict(X, Y, X_test,
+                                          logloss=True, return_oof_pred=True,
+                                          **fit_params)
 
 else:
     if VAL_FROM_LEAKY_TEST_ROWS:
@@ -190,12 +192,12 @@ else:
                                       logloss=True,
                                       return_oof_pred=True)
     else:
-        pred = model.cv(X, Y, **fit_params)
+        pred_oof_pred = model.cv(X, Y, return_oof_pred=True, **fit_params)
 
 
 # %%Create submission file
 if LOAD_TEST:
-    NAME = '_'
+    NAME = '5FoldFull_CatBoost_OnlySelected_GAgg4Selected_isLabel_1pt335'
     create_submission_file(dataset.test_df.index, pred, './Stacking/Test/Test_{}.csv'.format(NAME))
     create_submission_file(range(len(oof_pred)), oof_pred, './Stacking/Train/Train_{}.csv'.format(NAME))
 

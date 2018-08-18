@@ -193,7 +193,7 @@ class LightGBM():
         return evals_result, pred
 
     def cv(self, X, Y, nfold=5, ES_rounds=100, steps=5000, random_seed=143,
-           bootstrap=False, bagging_size_ratio=1, shuffle=True, oof_pred=False):
+           bootstrap=False, bagging_size_ratio=1, shuffle=True, return_oof_pred=False):
         # Train LGB model using CV
         if bootstrap:
             splits = generate_bagging_splits(
@@ -218,8 +218,8 @@ class LightGBM():
                                                     val_X=x_val, val_y=y_val,
                                                     ES_rounds=100,
                                                     steps=10000,
-                                                    return_oof_pred=oof_pred)
-            if oof_pred:
+                                                    return_oof_pred=return_oof_pred)
+            if return_oof_pred:
                 oof_results.extend(oof_prediction)
             if evals_result:
                 kFold_results.append(
@@ -231,12 +231,12 @@ class LightGBM():
         if kFold_results.size > 0:
             print('Mean val error: {}, std {} '.format(
                 kFold_results.mean(), kFold_results.std()))
-        if oof_pred:
+        if return_oof_pred:
             return np.array(oof_results)
 
     def cv_predict(self, X, Y, test_X, nfold=5, ES_rounds=100, steps=5000,
                    random_seed=143, logloss=False,
-                   bootstrap=False, bagging_size_ratio=1, oof_pred=False):
+                   bootstrap=False, bagging_size_ratio=1, return_oof_pred=False):
         '''Fit model using CV and predict test using the average
          of all folds'''
         if bootstrap:
@@ -261,8 +261,8 @@ class LightGBM():
                                                     val_X=x_val, val_y=y_val,
                                                     ES_rounds=100,
                                                     steps=10000,
-                                                    return_oof_pred=oof_pred)
-            if oof_pred:
+                                                    return_oof_pred=return_oof_pred)
+            if return_oof_pred:
                 oof_results.extend(oof_prediction)
             if evals_result:
                 kFold_results.append(
@@ -282,7 +282,7 @@ class LightGBM():
                 kFold_results.mean(), kFold_results.std()))
 
         # Divide pred by the number of folds and return
-        if oof_pred:
+        if return_oof_pred:
             return pred_y / nfold, np.array(oof_results)
         return pred_y / nfold
 
@@ -397,7 +397,7 @@ class CatBoost():
 
     def cv(self, X, Y, nfold=5, ES_rounds=100, random_seed=143,
            bootstrap=False, bagging_size_ratio=1,
-           shuffle=True, oof_pred=False, verbose=100):
+           shuffle=True, return_oof_pred=False, verbose=100):
         # Train LGB model using CV
         if bootstrap:
             splits = generate_bagging_splits(
@@ -425,7 +425,7 @@ class CatBoost():
                 return_oof_pred=True,
                 verbose=verbose)
 
-            if oof_pred:
+            if return_oof_pred:
                 oof_results.extend(oof_prediction)
             if evals_result is not None:
                 kFold_results.append(evals_result)
@@ -434,11 +434,11 @@ class CatBoost():
         if kFold_results.size > 0:
             print('Mean val error: {}, std {} '.format(
                 kFold_results.mean(), kFold_results.std()))
-        if oof_pred:
+        if return_oof_pred:
             return np.array(oof_results)
 
     def cv_predict(self, X, Y, test_X, nfold=5, ES_rounds=100,
-                   random_seed=143, shuffle=True, oof_pred=False,
+                   random_seed=143, shuffle=True, return_oof_pred=False,
                    bootstrap=False, bagging_size_ratio=1,
                    logloss=False, verbose=100):
         '''Fit model using CV and predict test using the average
@@ -468,7 +468,7 @@ class CatBoost():
                 return_oof_pred=True,
                 verbose=verbose)
 
-            if oof_pred:
+            if return_oof_pred:
                 oof_results.extend(oof_prediction)
             if evals_result is not None:
                 kFold_results.append(evals_result)
@@ -485,7 +485,7 @@ class CatBoost():
                 kFold_results.mean(), kFold_results.std()))
 
         # Divide pred by the number of folds and return
-        if oof_pred:
+        if return_oof_pred:
             return pred_y / nfold, np.array(oof_results)
         return pred_y / nfold
 
@@ -623,7 +623,7 @@ class RNN_LSTM():
 
     def cv(self, X, Y, nfold=5, epochs=5, mb_size=10, random_seed=143,
            scale_data=True, early_stop=True,
-            bootstrap=False, bagging_size_ratio=1):
+            bootstrap=False, bagging_size_ratio=1, **kwargs):
         # Train LGB model using CV
         if bootstrap:
             splits = generate_bagging_splits(
@@ -659,7 +659,7 @@ class RNN_LSTM():
     def cv_predict(self, X, Y, test_X, nfold=5, epochs=5, mb_size=10,
                    random_seed=143, logloss=True,
                    scale_data=True, early_stop=True,
-                   bootstrap=False, bagging_size_ratio=1):
+                   bootstrap=False, bagging_size_ratio=1, **kwargs):
         '''Fit model using CV and predict test using the average
          of all folds'''
         if bootstrap:
@@ -858,7 +858,7 @@ class XGBoost():
         else:
             self.get_best_metric = min
 
-    def fit(self, train_X, train_y, val_X, val_y, ES_rounds=10, steps=5000,
+    def fit(self, train_X, train_y, val_X, val_y, ES_rounds=20, steps=5000,
             verbose=25, return_oof_pred=True, **kwargs):
         # Train LGB model
         xgbtrain = xgb.DMatrix(train_X, label=train_y)
@@ -995,8 +995,8 @@ class XGBoost():
 
     def predict(self, test_X, logloss=False):
         '''Predict using a fitted model'''
-        pred_y = self.model.predict(
-            test_X, num_iteration=self.model.best_iteration)
+        xgbtest = xgb.DMatrix(test_X)
+        pred_y = self.model.predict(xgbtest)
         if logloss:
             pred_y = np.expm1(pred_y)
         return pred_y
@@ -1004,7 +1004,8 @@ class XGBoost():
     def fit_predict(self, train_X, train_y, test_X, val_X=None, val_y=None,
                     logloss=True, return_oof_pred=False, **kwargs):
         evals_result, oof_pred = self.fit(
-            train_X, train_y, val_X, val_y, return_oof_pred=return_oof_pred)
+            train_X, train_y, val_X, val_y,
+            return_oof_pred=return_oof_pred, **kwargs)
         pred_y = self.predict(test_X, logloss)
         if return_oof_pred:
             return evals_result, pred_y, oof_pred

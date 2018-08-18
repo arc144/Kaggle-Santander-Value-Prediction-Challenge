@@ -6,29 +6,25 @@ from Models import LightGBM, RNN_LSTM, Ensembler, CatBoost, LiRegression
 from Submission import create_submission_file, load_submissions_as_data_for_ensembling, merge_leaky_and_ML_sub
 
 TRAIN_NAMES = [
-    'Train_CatBoost_GAgg_1pt377.csv',
-#    'Train_CatBoost_GAgg_50FA50tSVD_1pt389.csv',
-    'Train_CatBoost_GAgg_50FA50tSVD_isLabel_1pt388.csv',
-#    'Train_CatBoost_raw_1pt452.csv',
-    'Train_CatBoost_OnlySelected_GAgg4Selected_1pt390.csv',
-    'Train_LightGBM_GAgg_1pt375.csv',
-#    'Train_LightGBM_GAgg_50FA50tSVD_1pt379.csv',
-    'Train_LightGBM_GAgg_50FA50tSVD_isLabel_1pt381.csv',
-    'Train_LightGBM_raw_1pt430.csv',
-    'Train_LightGBM_OnlySelected_GAgg4Selected_1pt380.csv',
+     'Train_5FoldFull_CatBoost_GAgg_1pt351.csv',
+#     'Train_5FoldFull_CatBoost_GAgg_50svd50FA_isLabel_1pt346.csv',
+     'Train_5FoldFull_CatBoost_GAgg_isLabel_1pt346.csv',
+     'Train_5FoldFull_LightGBM_GAgg_1pt336.csv',
+     'Train_5FoldFull_LightGBM_GAgg_50svd50FA_isLabel_1pt331.csv',
+#     'Train_5FoldFull_LightGBM_GAgg_isLabel_1pt335.csv',
+     'Train_5FoldFull_LightGBM_OnlySelected_GAgg4Selected_isLabel_1pt335.csv',
+     'Train_5FoldFull_LightGBM_raw_1pt402.csv',
     ]
 
 TEST_NAMES = [
-              'Test_CatBoost_GAgg_1pt377.csv',
-#              'Test_CatBoost_GAgg_50FA50tSVD_1pt389.csv',
-              'Test_CatBoost_GAgg_50FA50tSVD_isLabel_1pt388.csv',
-#              'Test_CatBoost_raw_1pt452.csv',
-              'Test_CatBoost_OnlySelected_GAgg4Selected_1pt390.csv',
-              'Test_LightGBM_GAgg_1pt375.csv',
-              #              'Test_LightGBM_GAgg_50FA50tSVD_1pt379.csv',
-              'Test_LightGBM_GAgg_50FA50tSVD_isLabel_1pt381.csv',
-              'Test_LightGBM_raw_1pt430.csv',
-              'Test_LightGBM_OnlySelected_GAgg4Selected_1pt380.csv',
+    'Test_5FoldFull_CatBoost_GAgg_1pt351.csv',
+#     'Test_5FoldFull_CatBoost_GAgg_50svd50FA_isLabel_1pt346.csv',
+     'Test_5FoldFull_CatBoost_GAgg_isLabel_1pt346.csv',
+     'Test_5FoldFull_LightGBM_GAgg_1pt336.csv',
+     'Test_5FoldFull_LightGBM_GAgg_50svd50FA_isLabel_1pt331.csv',
+#     'Test_5FoldFull_LightGBM_GAgg_isLabel_1pt335.csv',
+     'Test_5FoldFull_LightGBM_OnlySelected_GAgg4Selected_isLabel_1pt335.csv',
+     'Test_5FoldFull_LightGBM_raw_1pt402.csv',
               ]
 
 TRAIN_PATH = './Stacking/Train/'
@@ -36,7 +32,8 @@ TEST_PATH = './Stacking/Test/'
 TRAIN_LIST = [os.path.join(TRAIN_PATH, name) for name in TRAIN_NAMES]
 TEST_LIST = [os.path.join(TEST_PATH, name) for name in TEST_NAMES]
 
-Y_TRAIN = './Stacking/Train/leaky_rows_Y.npy'
+#Y_TRAIN = './Stacking/Train/leaky_rows_Y.npy'
+Y_TRAIN = './Stacking/Train/fullTrain_Y.npy'
 LEAKY_SUB_NAME = 'baseline_sub_lag_37.csv'
 
 LOAD_TEST = True
@@ -57,14 +54,14 @@ MODEL_TYPE = 'LiRegression'     # Either LightGBM, XGBoost, CatBoost, LiRegressi
 
 if MODEL_TYPE == 'LightGBM':
     LightGBM_params = dict(boosting='gbdt',
-                           num_leaves=5, lr=0.0039, bagging_fraction=0.05,
-                           max_depth=3,
+                           num_leaves=5, lr=0.0039, bagging_fraction=0.6,
+                           max_depth=1,
                            max_bin=201,
-                           feature_fraction=0.1, bagging_freq=3,
-                           min_data_in_leaf=5,
-                           min_sum_hessian_in_leaf=1e-1,
+                           feature_fraction=0.6, bagging_freq=3,
+                           min_data_in_leaf=50,
+                           min_sum_hessian_in_leaf=10,
                            use_missing=True, zero_as_missing=False,
-                           lambda_l1=0, lambda_l2=1,
+                           lambda_l1=10, lambda_l2=10,
                            device='gpu', num_threads=11)
 
     fit_params = dict(nfold=NFOLD,  ES_rounds=100,
