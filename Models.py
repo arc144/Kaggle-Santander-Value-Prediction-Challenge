@@ -193,61 +193,65 @@ class LightGBM():
         return evals_result, pred
 
     def cv(self, X, Y, nfold=5, ES_rounds=100, steps=5000, random_seed=143,
-           bootstrap=False, bagging_size_ratio=1, shuffle=True, return_oof_pred=False):
+           bootstrap=False, bagging_size_ratio=1, shuffle=True,
+           stacking_mode='mean', return_oof_pred=False, splits=None):
         # Train LGB model using CV
-        if bootstrap:
-            splits = generate_bagging_splits(
-                X.shape[0], nfold,
-                bagging_size_ratio=bagging_size_ratio,
-                random_seed=random_seed)
+        assert stacking_mode in ['mean', 'LinearRegression']
+        if splits is None:
+            if bootstrap:
+                splits = generate_bagging_splits(
+                    X.shape[0], nfold,
+                    bagging_size_ratio=bagging_size_ratio,
+                    random_seed=random_seed)
 
-        else:
-            kf = KFold(n_splits=nfold, shuffle=shuffle,
-                       random_state=random_seed)
-            splits = kf.split(X, y=Y)
+            else:
+                kf = KFold(n_splits=nfold, shuffle=shuffle,
+                           random_state=random_seed)
+                splits = kf.split(X, y=Y)
 
-        kFold_results = []
         oof_results = []
+        y_true = []
         for train_index, val_index in splits:
             x_train = X[train_index]
             y_train = Y[train_index]
             x_val = X[val_index]
             y_val = Y[val_index]
 
-            evals_result, oof_prediction = self.fit(train_X=x_train, train_y=y_train,
-                                                    val_X=x_val, val_y=y_val,
-                                                    ES_rounds=100,
-                                                    steps=10000,
-                                                    return_oof_pred=return_oof_pred)
-            if return_oof_pred:
-                oof_results.extend(oof_prediction)
-            if evals_result:
-                kFold_results.append(
-                    np.array(
-                        self.get_best_metric(
-                            evals_result['valid_1'][self.params['metric']])))
+            _, oof_prediction = self.fit(train_X=x_train, train_y=y_train,
+                                         val_X=x_val, val_y=y_val,
+                                         ES_rounds=100,
+                                         steps=10000,
+                                         return_oof_pred=True)
 
-        kFold_results = np.array(kFold_results)
-        if kFold_results.size > 0:
-            print('Mean val error: {}, std {} '.format(
-                kFold_results.mean(), kFold_results.std()))
+            oof_results.extend(oof_prediction)
+            y_true.extend(y_val)
+
+        if stacking_mode == 'mean':
+            y_fold_pred = np.mean(oof_prediction, axis=0)
+            results = np.sqrt(mean_squared_error(y_true, y_fold_pred))
+
+        print('Mean val error: {}'.format(results))
+
         if return_oof_pred:
             return np.array(oof_results)
 
     def cv_predict(self, X, Y, test_X, nfold=5, ES_rounds=100, steps=5000,
                    random_seed=143, logloss=False,
-                   bootstrap=False, bagging_size_ratio=1, return_oof_pred=False):
+                   bootstrap=False, bagging_size_ratio=1,
+                   return_oof_pred=False, splits=None):
         '''Fit model using CV and predict test using the average
          of all folds'''
-        if bootstrap:
-            splits = generate_bagging_splits(
-                X.shape[0], nfold,
-                bagging_size_ratio=bagging_size_ratio,
-                random_seed=random_seed)
+        if splits is None:
+            if bootstrap:
+                splits = generate_bagging_splits(
+                    X.shape[0], nfold,
+                    bagging_size_ratio=bagging_size_ratio,
+                    random_seed=random_seed)
 
-        else:
-            kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
-            splits = kf.split(X, y=Y)
+            else:
+                kf = KFold(n_splits=nfold, shuffle=True,
+                           random_state=random_seed)
+                splits = kf.split(X, y=Y)
 
         kFold_results = []
         oof_results = []
@@ -396,19 +400,20 @@ class CatBoost():
         return oof_result, pred
 
     def cv(self, X, Y, nfold=5, ES_rounds=100, random_seed=143,
-           bootstrap=False, bagging_size_ratio=1,
+           bootstrap=False, bagging_size_ratio=1, splits=None,
            shuffle=True, return_oof_pred=False, verbose=100):
         # Train LGB model using CV
-        if bootstrap:
-            splits = generate_bagging_splits(
-                X.shape[0], nfold,
-                bagging_size_ratio=bagging_size_ratio,
-                random_seed=random_seed)
+        if splits is None:
+            if bootstrap:
+                splits = generate_bagging_splits(
+                    X.shape[0], nfold,
+                    bagging_size_ratio=bagging_size_ratio,
+                    random_seed=random_seed)
 
-        else:
-            kf = KFold(n_splits=nfold, shuffle=shuffle,
-                       random_state=random_seed)
-            splits = kf.split(X, y=Y)
+            else:
+                kf = KFold(n_splits=nfold, shuffle=shuffle,
+                           random_state=random_seed)
+                splits = kf.split(X, y=Y)
 
         kFold_results = []
         oof_results = []
@@ -440,18 +445,20 @@ class CatBoost():
     def cv_predict(self, X, Y, test_X, nfold=5, ES_rounds=100,
                    random_seed=143, shuffle=True, return_oof_pred=False,
                    bootstrap=False, bagging_size_ratio=1,
-                   logloss=False, verbose=100):
+                   logloss=False, verbose=100, splits=None):
         '''Fit model using CV and predict test using the average
          of all folds'''
-        if bootstrap:
-            splits = generate_bagging_splits(
-                X.shape[0], nfold,
-                bagging_size_ratio=bagging_size_ratio,
-                random_seed=random_seed)
+        if splits is None:
+            if bootstrap:
+                splits = generate_bagging_splits(
+                    X.shape[0], nfold,
+                    bagging_size_ratio=bagging_size_ratio,
+                    random_seed=random_seed)
 
-        else:
-            kf = KFold(n_splits=nfold, shuffle=True, random_state=random_seed)
-            splits = kf.split(X, y=Y)
+            else:
+                kf = KFold(n_splits=nfold, shuffle=True,
+                           random_state=random_seed)
+                splits = kf.split(X, y=Y)
 
         kFold_results = []
         oof_results = []

@@ -13,11 +13,13 @@ else:
 # Load and preprocess Dataset
 dataset = KaggleDataset(train_path, test_path=test_path)
 
-#dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
+dataset.compute_aggregates_for_all_features('both' if LOAD_TEST else 'train')
+
+dataset.compute_time_series_aggregates('both' if LOAD_TEST else 'train')
 
 #dataset.remove_fillers_from_data('both' if LOAD_TEST else 'train', 20)
 
-# dataset.compute_aggregates_for_selected_features(
+#dataset.compute_aggregates_for_selected_features(
 #    'both' if LOAD_TEST else 'train')
 #
 #dataset.keep_only_selected_features('both' if LOAD_TEST else 'train')
@@ -29,18 +31,18 @@ dataset = KaggleDataset(train_path, test_path=test_path)
 
 #dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
 #                                         threshold='soft',
-#                                         verbose=True,
-#                                         calc_on_selected_feat=False)
-###
-#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+#                                         verbos#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 #                                      n_components=50, method='fa',
 #                                      comp_stats=False,
 #                                      normalize=False)
-##
+#
 #dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 #                                      n_components=50, method='svd',
 #                                      comp_stats=False,
-#                                      normalize=False)
+#                                      normalize=False)e=True,
+#                                         calc_on_selected_feat=False)
+###
+
 
 # dataset.compute_cluster_features('both' if LOAD_TEST else 'train',
 #                                 iter_cluster=range(2, 7))
@@ -55,7 +57,7 @@ dataset = KaggleDataset(train_path, test_path=test_path)
 VAL_FROM_LEAKY_TEST_ROWS = True
 TRAIN_WITH_LEAKY_ROWS = False
 LEAKY_TEST_SUB_PATH = 'baseline_sub_lag_37.csv'
-TIME_SERIES = True
+TIME_SERIES = False
 LOGLOSS = True
 NORMALIZE = False
 AGGREGATES = True
@@ -96,7 +98,7 @@ RANDOM_SEED = 143
 NFOLD = 5
 BAGGING = False
 # Train model on KFold
-MODEL_TYPE = 'LSTM'     # Either LightGBM, XGBoost, CatBoost or LSTM
+MODEL_TYPE = 'LightGBM'     # Either LightGBM, XGBoost, CatBoost or LSTM
 
 
 if MODEL_TYPE == 'LightGBM':
@@ -109,7 +111,7 @@ if MODEL_TYPE == 'LightGBM':
                            min_sum_hessian_in_leaf=1e-1,
                            use_missing=True, zero_as_missing=False,
                            lambda_l1=1e-1, lambda_l2=1,
-                           device='gpu', num_threads=11)
+                           device='cpu', num_threads=4)
 
     fit_params = dict(nfold=NFOLD,  ES_rounds=100,
                       steps=50000, random_seed=RANDOM_SEED,
@@ -192,12 +194,13 @@ else:
                                       logloss=True,
                                       return_oof_pred=True)
     else:
-        pred_oof_pred = model.cv(X, Y, return_oof_pred=True, **fit_params)
+        oof_pred = model.cv(X, Y, 
+                            return_oof_pred=True, **fit_params)
 
 
 # %%Create submission file
 if LOAD_TEST:
-    NAME = '5FoldFull_CatBoost_OnlySelected_GAgg4Selected_isLabel_1pt335'
+    NAME = '5FoldFull_CatBoost_GAgg_TSAgg_1pt337'
     create_submission_file(dataset.test_df.index, pred, './Stacking/Test/Test_{}.csv'.format(NAME))
     create_submission_file(range(len(oof_pred)), oof_pred, './Stacking/Train/Train_{}.csv'.format(NAME))
 

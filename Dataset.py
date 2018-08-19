@@ -22,6 +22,109 @@ def load_df_from_path(path):
     return df
 
 
+def running_mean(x, N):
+    cumsum = np.cumsum(np.insert(x, 0, 0))
+    return (cumsum[N:] - cumsum[:-N]) / float(N)
+
+
+def compute_TS_aggregates(df, prefix='TS'):
+    '''Add aggregates rowise considering TS properties'''
+    agg_df = pd.DataFrame(index=df.index)
+    for index, row in df.iterrows():
+        non_zero_values = row.iloc[row.nonzero()]
+        if non_zero_values.empty:
+            continue
+        non_zero_values = non_zero_values.values
+        agg_df.at[index, '{}_non_zero_mean'.format(
+            prefix)] = non_zero_values.mean()
+        agg_df.at[index, '{}_non_zero_max'.format(
+            prefix)] = non_zero_values.max()
+        agg_df.at[index, '{}_non_zero_min'.format(
+            prefix)] = non_zero_values.min()
+        agg_df.at[index, '{}_non_zero_std'.format(
+            prefix)] = np.std(non_zero_values)
+        agg_df.at[index, '{}non_zero_median'.format(prefix)] = \
+            np.median(non_zero_values)
+        agg_df.at[index, '{}_non_zero_gmean'.format(prefix)] = \
+            geo_mean_overflow(non_zero_values)
+        agg_df.at[index, '{}_non_zero_skewness'.format(prefix)] = \
+            skew(non_zero_values)
+        agg_df.at[index, '{}_non_zero_kurtosis'.format(prefix)] = \
+            kurtosis(non_zero_values)
+        agg_df.at[index, '{}non_zero_q1'.format(prefix)] = \
+            np.percentile(non_zero_values, q=25)
+        agg_df.at[index, '{}non_zero_q3'.format(prefix)] = \
+            np.percentile(non_zero_values, q=75)
+        agg_df.at[index, '{}non_zero_log_mean'.format(prefix)] = \
+            np.log1p(non_zero_values).mean()
+        agg_df.at[index, '{}non_zero_log_max'.format(prefix)] = \
+            np.log1p(non_zero_values).max()
+        agg_df.at[index, '{}non_zero_log_min'.format(prefix)] = \
+            np.log1p(non_zero_values).min()
+        agg_df.at[index, '{}non_zero_log_std'.format(prefix)] = \
+            np.log1p(np.std(non_zero_values))
+        agg_df.at[index, '{}non_zero_log_sum'.format(prefix)] = \
+            np.log1p(non_zero_values).sum()
+        agg_df.at[index, '{}non_zero_log_median'.format(prefix)] = \
+            np.median(np.log1p(non_zero_values))
+        agg_df.at[index, '{}non_zero_log_q1'.format(prefix)] = \
+            np.percentile(np.log1p(non_zero_values), q=25)
+        agg_df.at[index, '{}non_zero_log_q3'.format(prefix)] = \
+            np.percentile(np.log1p(non_zero_values), q=75)
+        agg_df.at[index, '{}non_zero_log_gmean'.format(prefix)] = \
+            geo_mean_overflow(np.log1p(non_zero_values))
+        agg_df.at[index, '{}non_zero_log_skewness'.format(prefix)] = \
+            skew(np.log1p(non_zero_values))
+        agg_df.at[index, '{}non_zero_log_kurtosis'.format(prefix)] = \
+            kurtosis(np.log1p(non_zero_values))
+
+        for k in [5, 10]:
+            agg_df.at[index, '{}_{}first_non_zero_mean'.format(
+                prefix, k)] = non_zero_values[:k + 1].mean()
+            agg_df.at[index, '{}_{}first_non_zero_max'.format(
+                prefix, k)] = non_zero_values[:k + 1].max()
+            agg_df.at[index, '{}_{}first_non_zero_min'.format(
+                prefix, k)] = non_zero_values[:k + 1].min()
+            agg_df.at[index, '{}_{}first_non_zero_std'.format(
+                prefix, k)] = np.std(non_zero_values[:k + 1])
+            agg_df.at[index, '{}non_zero_median'.format(prefix, k)] = \
+                np.median(non_zero_values[:k + 1])
+            agg_df.at[index, '{}_{}first_non_zero_gmean'.format(prefix, k)] = \
+                geo_mean_overflow(non_zero_values[:k + 1])
+            agg_df.at[index, '{}_{}first_non_zero_skewness'.format(prefix, k)] = \
+                skew(non_zero_values[:k + 1])
+            agg_df.at[index, '{}_{}first_non_zero_kurtosis'.format(prefix, k)] = \
+                kurtosis(non_zero_values[:k + 1])
+            agg_df.at[index, '{}_{}first_non_zero_q1'.format(prefix, k)] = \
+                np.percentile(non_zero_values[:k + 1], q=25)
+            agg_df.at[index, '{}_{}first_non_zero_q3'.format(prefix, k)] = \
+                np.percentile(non_zero_values[:k + 1], q=75)
+            agg_df.at[index, '{}_{}first_non_zero_log_mean'.format(prefix, k)] = \
+                np.log1p(non_zero_values[:k + 1]).mean()
+            agg_df.at[index, '{}_{}first_non_zero_log_max'.format(prefix, k)] = \
+                np.log1p(non_zero_values[:k + 1]).max()
+            agg_df.at[index, '{}_{}first_non_zero_log_min'.format(prefix, k)] = \
+                np.log1p(non_zero_values[:k + 1]).min()
+            agg_df.at[index, '{}_{}first_non_zero_log_std'.format(prefix, k)] = \
+                np.log1p(np.std(non_zero_values[:k + 1]))
+            agg_df.at[index, '{}_{}first_non_zero_log_sum'.format(prefix, k)] = \
+                np.log1p(non_zero_values[:k + 1]).sum()
+            agg_df.at[index, '{}_{}first_non_zero_log_median'.format(prefix, k)] = \
+                np.median(np.log1p(non_zero_values[:k + 1]))
+            agg_df.at[index, '{}_{}first_non_zero_log_q1'.format(prefix, k)] = \
+                np.percentile(np.log1p(non_zero_values[:k + 1]), q=25)
+            agg_df.at[index, '{}_{}first_non_zero_log_q3'.format(prefix, k)] = \
+                np.percentile(np.log1p(non_zero_values[:k + 1]), q=75)
+            agg_df.at[index, '{}_{}first_non_zero_log_gmean'.format(prefix, k)] = \
+                geo_mean_overflow(np.log1p(non_zero_values[:k + 1]))
+            agg_df.at[index, '{}_{}first_non_zero_log_skewness'.format(prefix, k)] = \
+                skew(np.log1p(non_zero_values[:k + 1]))
+            agg_df.at[index, '{}_{}first_non_zero_log_kurtosis'.format(prefix, k)] = \
+                kurtosis(np.log1p(non_zero_values[:k + 1]))
+
+    return agg_df
+
+
 def compute_row_aggregates(df, prefix=''):
     '''Add series of aggreagates to dataset rowise'''
     agg_df = pd.DataFrame(index=df.index)
@@ -43,21 +146,21 @@ def compute_row_aggregates(df, prefix=''):
             prefix)] = non_zero_values.sum()
         agg_df.at[index, '{}non_zero_median'.format(prefix)] = \
             np.median(non_zero_values)
+        agg_df.at[index, '{}_non_zero_gmean'.format(prefix)] = \
+            geo_mean_overflow(non_zero_values)
+        agg_df.at[index, '{}_non_zero_skewness'.format(prefix)] = \
+            skew(non_zero_values)
+        agg_df.at[index, '{}_non_zero_kurtosis'.format(prefix)] = \
+            kurtosis(non_zero_values)
         agg_df.at[index, '{}non_zero_q1'.format(prefix)] = \
             np.percentile(non_zero_values, q=25)
         agg_df.at[index, '{}non_zero_q3'.format(prefix)] = \
             np.percentile(non_zero_values, q=75)
-        agg_df.at[index, '{}_non_zero_gmean'.format(prefix)] = \
-            geo_mean_overflow(non_zero_values)
 
         mode_ = mode(np.around(non_zero_values, decimals=4))
         agg_df.at[index, '{}_non_zero_mode'.format(prefix)] = mode_[
             0] if mode_[1] > 1 else 0
         agg_df.at[index, '{}_non_zero_mode_count'.format(prefix)] = mode_[1]
-        agg_df.at[index, '{}_non_zero_skewness'.format(prefix)] = \
-            skew(non_zero_values)
-        agg_df.at[index, '{}_non_zero_kurtosis'.format(prefix)] = \
-            kurtosis(non_zero_values)
 
         # LOG AGGREGATES
         agg_df.at[index, '{}non_zero_log_mean'.format(prefix)] = \
@@ -439,6 +542,27 @@ class KaggleDataset():
                 self.test_df, prefix='global')
             # Add to aggregates
             self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
+
+    def compute_time_series_aggregates(self, dataset):
+        if dataset == 'train' or dataset == 'both':
+            x, _ = self.get_data_as_time_series(dataset='train')
+            for i in range(x.shape[2]):
+                # if i > 0:
+                #     continue
+                df = pd.DataFrame(x[:, :, i], index=self.train_df.index)
+                train_agg = compute_TS_aggregates(df, prefix='ts')
+                # Add to aggregates
+                self.train_agg = pd.concat([self.train_agg, train_agg], axis=1)
+
+        if dataset == 'test' or dataset == 'both':
+            x = self.get_data_as_time_series(dataset='test')
+            for i in range(x.shape[2]):
+                # if i > 0:
+                #     continue
+                df = pd.DataFrame(x[:, :, i], index=self.test_df.index)
+                test_agg = compute_TS_aggregates(df, prefix='ts')
+                # Add to aggregates
+                self.test_agg = pd.concat([self.test_agg, test_agg], axis=1)
 
     def compute_aggregates_for_selected_features(self, dataset):
         '''Compute aggregate features for the hand selected features'''

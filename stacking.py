@@ -6,9 +6,13 @@ from Models import LightGBM, RNN_LSTM, Ensembler, CatBoost, LiRegression
 from Submission import create_submission_file, load_submissions_as_data_for_ensembling, merge_leaky_and_ML_sub
 
 TRAIN_NAMES = [
+#     'Train_5FoldFull_CatBoost_GAgg_TSAgg_1pt337.csv',
      'Train_5FoldFull_CatBoost_GAgg_1pt351.csv',
 #     'Train_5FoldFull_CatBoost_GAgg_50svd50FA_isLabel_1pt346.csv',
      'Train_5FoldFull_CatBoost_GAgg_isLabel_1pt346.csv',
+     
+     'Train_5FoldFull_LightGBM_GAgg_TSAgg_1pt326.csv',
+#     'Train_5FoldFull_LightGBM_GAgg_TSAgg_isLabel_1pt326.csv',
      'Train_5FoldFull_LightGBM_GAgg_1pt336.csv',
      'Train_5FoldFull_LightGBM_GAgg_50svd50FA_isLabel_1pt331.csv',
 #     'Train_5FoldFull_LightGBM_GAgg_isLabel_1pt335.csv',
@@ -17,9 +21,13 @@ TRAIN_NAMES = [
     ]
 
 TEST_NAMES = [
+#    'Test_5FoldFull_CatBoost_GAgg_TSAgg_1pt337.csv',
     'Test_5FoldFull_CatBoost_GAgg_1pt351.csv',
 #     'Test_5FoldFull_CatBoost_GAgg_50svd50FA_isLabel_1pt346.csv',
      'Test_5FoldFull_CatBoost_GAgg_isLabel_1pt346.csv',
+     
+     'Test_5FoldFull_LightGBM_GAgg_TSAgg_1pt326.csv',
+#     'Test_5FoldFull_LightGBM_GAgg_TSAgg_isLabel_1pt326.csv',
      'Test_5FoldFull_LightGBM_GAgg_1pt336.csv',
      'Test_5FoldFull_LightGBM_GAgg_50svd50FA_isLabel_1pt331.csv',
 #     'Test_5FoldFull_LightGBM_GAgg_isLabel_1pt335.csv',
