@@ -57,8 +57,8 @@ dataset.compute_time_series_aggregates('both' if LOAD_TEST else 'train')
 # dataset.remove_different_distribution_features()
 
 # %% Get data for trainning
-VAL_FROM_LEAKY_TEST_ROWS = False
-TRAIN_WITH_LEAKY_ROWS = True
+VAL_FROM_LEAKY_TEST_ROWS = True
+TRAIN_WITH_LEAKY_ROWS = False
 LEAKY_TEST_SUB_PATH = 'baseline_sub_lag_37.csv'
 TIME_SERIES = False
 LOGLOSS = True
@@ -106,14 +106,15 @@ MODEL_TYPE = 'LightGBM'     # Either LightGBM, XGBoost, CatBoost or LSTM
 
 if MODEL_TYPE == 'LightGBM':
     LightGBM_params = dict(boosting='gbdt',
-                           num_leaves=53, lr=0.0039, bagging_fraction=0.71,
-                           max_depth=8, 
-                           max_bin=201,
-                           feature_fraction=0.23, bagging_freq=3,
-                           min_data_in_leaf=12,  # 12
-                           min_sum_hessian_in_leaf=1e-1,
+                           num_leaves=8, lr=0.00425, bagging_fraction=0.71,
+                           max_depth=3, 
+                           max_bin=220,
+                           feature_fraction=0.20, bagging_freq=4,
+                           min_data_in_leaf=12,
                            use_missing=True, zero_as_missing=False,
-                           lambda_l1=np.power(10, -2.2887), lambda_l2=np.power(10, 1.7570),
+                           min_split_gain=np.power(10, -0.5),
+                           min_child_weight=np.power(10, 2.25),
+                           lambda_l1=np.power(10, -1.8), lambda_l2=np.power(10, 1.725),
                            device='cpu', num_threads=4)
 
     fit_params = dict(nfold=NFOLD,  ES_rounds=100,
