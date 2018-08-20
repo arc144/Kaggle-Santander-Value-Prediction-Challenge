@@ -27,6 +27,13 @@ def running_mean(x, N):
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
 
+def compute_EMA(x, alpha):
+    '''Compute EMA for array, x goes from newer to older'''
+    inv_x = x[::-1]
+    df = pd.DataFrame(inv_x)
+    return np.squeeze(df.ewm(alpha=alpha).mean().values[-1])
+
+
 def compute_TS_aggregates(df, prefix='TS'):
     '''Add aggregates rowise considering TS properties'''
     agg_df = pd.DataFrame(index=df.index)
@@ -77,6 +84,14 @@ def compute_TS_aggregates(df, prefix='TS'):
             skew(np.log1p(non_zero_values))
         agg_df.at[index, '{}non_zero_log_kurtosis'.format(prefix)] = \
             kurtosis(np.log1p(non_zero_values))
+        agg_df.at[index, '{}non_zero_log_EMA25'.format(prefix)] = \
+            compute_EMA(np.log1p(non_zero_values), alpha=0.2)
+        agg_df.at[index, '{}non_zero_EMA25'.format(prefix)] = \
+            compute_EMA(non_zero_values, alpha=0.2)
+        # agg_df.at[index, '{}non_zero_EMA50'.format(prefix)] = \
+        #     compute_EMA(non_zero_values, alpha=0.5)
+        # agg_df.at[index, '{}non_zero_EMA75'.format(prefix)] = \
+        #     compute_EMA(non_zero_values, alpha=0.75)
 
         for k in [5, 10]:
             agg_df.at[index, '{}_{}first_non_zero_mean'.format(
@@ -121,7 +136,12 @@ def compute_TS_aggregates(df, prefix='TS'):
                 skew(np.log1p(non_zero_values[:k + 1]))
             agg_df.at[index, '{}_{}first_non_zero_log_kurtosis'.format(prefix, k)] = \
                 kurtosis(np.log1p(non_zero_values[:k + 1]))
-
+            # agg_df.at[index, '{}_{}non_zero_EMA25'.format(prefix, k)] = \
+            #     compute_EMA(non_zero_values[:k + 1], alpha=0.25)
+            # agg_df.at[index, '{}_{}non_zero_EMA50'.format(prefix, k)] = \
+            #     compute_EMA(non_zero_values[:k + 1], alpha=0.50)
+            # agg_df.at[index, '{}_{}non_zero_EMA75'.format(prefix, k)] = \
+            #     compute_EMA(non_zero_values[:k + 1], alpha=0.75)
     return agg_df
 
 

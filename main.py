@@ -204,7 +204,7 @@ else:
 
 # %%Create submission file
 if LOAD_TEST:
-    NAME = '5FoldFull_LightGBM_GAgg_TSAgg_1pt327'
+    NAME = '_'
     create_submission_file(dataset.test_df.index, pred, './Stacking/Test/Test_{}.csv'.format(NAME))
     create_submission_file(range(len(oof_pred)), oof_pred, './Stacking/Train/Train_{}.csv'.format(NAME))
 
