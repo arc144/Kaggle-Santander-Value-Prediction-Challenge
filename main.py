@@ -28,10 +28,13 @@ dataset.compute_time_series_aggregates('both' if LOAD_TEST else 'train')
 
 # dataset.compute_aggregates_for_most_important('both' if LOAD_TEST else 'train',
 #                                              num=75, importance_type='gain')
-
+#
 #dataset.add_IsTargetAvaliable_as_feature(test=True if LOAD_TEST else False,
 #                                         threshold='soft',
-#                                         verbos#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
+#                                         verbose=True,
+#                                         calc_on_selected_feat=False)
+
+#dataset.add_decomposition_as_features('both' if LOAD_TEST else 'train',
 #                                      n_components=50, method='fa',
 #                                      comp_stats=False,
 #                                      normalize=False)
@@ -54,8 +57,8 @@ dataset.compute_time_series_aggregates('both' if LOAD_TEST else 'train')
 # dataset.remove_different_distribution_features()
 
 # %% Get data for trainning
-VAL_FROM_LEAKY_TEST_ROWS = True
-TRAIN_WITH_LEAKY_ROWS = False
+VAL_FROM_LEAKY_TEST_ROWS = False
+TRAIN_WITH_LEAKY_ROWS = True
 LEAKY_TEST_SUB_PATH = 'baseline_sub_lag_37.csv'
 TIME_SERIES = False
 LOGLOSS = True
@@ -110,7 +113,7 @@ if MODEL_TYPE == 'LightGBM':
                            min_data_in_leaf=12,  # 12
                            min_sum_hessian_in_leaf=1e-1,
                            use_missing=True, zero_as_missing=False,
-                           lambda_l1=1e-1, lambda_l2=1,
+                           lambda_l1=np.power(10, -2.2887), lambda_l2=np.power(10, 1.7570),
                            device='cpu', num_threads=4)
 
     fit_params = dict(nfold=NFOLD,  ES_rounds=100,
@@ -200,7 +203,7 @@ else:
 
 # %%Create submission file
 if LOAD_TEST:
-    NAME = '5FoldFull_CatBoost_GAgg_TSAgg_1pt337'
+    NAME = '5FoldFull_LightGBM_GAgg_TSAgg_1pt327'
     create_submission_file(dataset.test_df.index, pred, './Stacking/Test/Test_{}.csv'.format(NAME))
     create_submission_file(range(len(oof_pred)), oof_pred, './Stacking/Train/Train_{}.csv'.format(NAME))
 

@@ -6,35 +6,49 @@ from Models import LightGBM, RNN_LSTM, Ensembler, CatBoost, LiRegression
 from Submission import create_submission_file, load_submissions_as_data_for_ensembling, merge_leaky_and_ML_sub
 
 TRAIN_NAMES = [
-#     'Train_5FoldFull_CatBoost_GAgg_TSAgg_1pt337.csv',
      'Train_5FoldFull_CatBoost_GAgg_1pt351.csv',
-#     'Train_5FoldFull_CatBoost_GAgg_50svd50FA_isLabel_1pt346.csv',
      'Train_5FoldFull_CatBoost_GAgg_isLabel_1pt346.csv',
-     
-     'Train_5FoldFull_LightGBM_GAgg_TSAgg_1pt326.csv',
-#     'Train_5FoldFull_LightGBM_GAgg_TSAgg_isLabel_1pt326.csv',
+#     'Train_5FoldFull_LightGBM_GAgg_TSAgg_1pt326.csv',
      'Train_5FoldFull_LightGBM_GAgg_1pt336.csv',
      'Train_5FoldFull_LightGBM_GAgg_50svd50FA_isLabel_1pt331.csv',
-#     'Train_5FoldFull_LightGBM_GAgg_isLabel_1pt335.csv',
      'Train_5FoldFull_LightGBM_OnlySelected_GAgg4Selected_isLabel_1pt335.csv',
      'Train_5FoldFull_LightGBM_raw_1pt402.csv',
+     'Train_5FoldFull_LightGBM_GAgg_TSAgg_1pt327.csv'
     ]
 
 TEST_NAMES = [
-#    'Test_5FoldFull_CatBoost_GAgg_TSAgg_1pt337.csv',
-    'Test_5FoldFull_CatBoost_GAgg_1pt351.csv',
-#     'Test_5FoldFull_CatBoost_GAgg_50svd50FA_isLabel_1pt346.csv',
-     'Test_5FoldFull_CatBoost_GAgg_isLabel_1pt346.csv',
-     
-     'Test_5FoldFull_LightGBM_GAgg_TSAgg_1pt326.csv',
-#     'Test_5FoldFull_LightGBM_GAgg_TSAgg_isLabel_1pt326.csv',
+     'Test_5FoldFull_CatBoost_GAgg_1pt351.csv',
+     'Test_5FoldFull_CatBoost_GAgg_isLabel_1pt346.csv',  
+#     'Test_5FoldFull_LightGBM_GAgg_TSAgg_1pt326.csv',
      'Test_5FoldFull_LightGBM_GAgg_1pt336.csv',
      'Test_5FoldFull_LightGBM_GAgg_50svd50FA_isLabel_1pt331.csv',
-#     'Test_5FoldFull_LightGBM_GAgg_isLabel_1pt335.csv',
      'Test_5FoldFull_LightGBM_OnlySelected_GAgg4Selected_isLabel_1pt335.csv',
      'Test_5FoldFull_LightGBM_raw_1pt402.csv',
+     'Test_5FoldFull_LightGBM_GAgg_TSAgg_1pt327.csv'
               ]
 
+# =============================================================================
+# TRAIN_NAMES = [
+#      'Train_CatBoost_GAgg_1pt377.csv',
+#      'Train_CatBoost_OnlySelected_GAgg4Selected_1pt390.csv',
+#      'Train_LightGBM_GAgg_1pt375.csv',
+#      'Train_LightGBM_GAgg_50FA50tSVD_isLabel_1pt381.csv',
+#      'Train_LightGBM_GAgg_TSAgg_1pt354.csv',
+#      'Train_LightGBM_raw_1pt430.csv',
+#      ]
+# 
+# 
+# TEST_NAMES = [
+#      'Test_CatBoost_GAgg_1pt377.csv',
+#      'Test_CatBoost_OnlySelected_GAgg4Selected_1pt390.csv',
+#      'Test_LightGBM_GAgg_1pt375.csv',
+#      'Test_LightGBM_GAgg_50FA50tSVD_isLabel_1pt381.csv',
+#      'Test_LightGBM_GAgg_TSAgg_1pt354.csv',
+#      'Test_LightGBM_raw_1pt430.csv',
+#       ]
+# =============================================================================
+              
+     
 TRAIN_PATH = './Stacking/Train/'
 TEST_PATH = './Stacking/Test/'
 TRAIN_LIST = [os.path.join(TRAIN_PATH, name) for name in TRAIN_NAMES]
